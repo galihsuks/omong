@@ -15,6 +15,12 @@ const UserSchema = mongoose.Schema(
             type: String,
             required: [true, "Isi nama Anda"],
         },
+        token: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Token",
+            },
+        ],
     },
     {
         timestamps: true,

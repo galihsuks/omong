@@ -1,5 +1,6 @@
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
+const Token = require("./model");
 
 function authenticateToken(req, res, next) {
     const authHeader = req.headers["authorization"];
@@ -8,7 +9,14 @@ function authenticateToken(req, res, next) {
 
     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, async (err, payload) => {
         if (err) return res.status(401).json({ pesan: "Unauthorized" });
-        req.user = payload;
+        const checkToken = await Token.findOne({
+            content: token,
+        });
+        if (!checkToken) return res.status(401).json({ pesan: "Unauthorized" });
+        req.user = {
+            ...payload,
+            token,
+        };
         next();
     });
 }
