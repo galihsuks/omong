@@ -31,8 +31,15 @@ export async function POST(req: Request) {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
-        maxAge: 60 * 60,
+        expires: new Date("9999-12-31T23:59:59.000Z"),
     });
+    response.headers.set("Access-Control-Allow-Origin", "*");
+    response.headers.set("Access-Control-Allow-Credentials", "true");
+    response.headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    response.headers.set(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization"
+    );
     return response;
     // return NextResponse.json(responseLogin, {
     //     status: 200,
