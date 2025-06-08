@@ -18,14 +18,6 @@ export async function POST(req: Request) {
     if (fetchLogin.status != 200) {
         return NextResponse.json(responseLogin, { status: fetchLogin.status });
     }
-    // return NextResponse.json(responseLogin, {
-    //     status: fetchLogin.status,
-    //     headers: {
-    //         // Remove Max-Age and Expires to make it a session cookie (expires when browser closes)
-    //         // But to make it "never expire", set a far future Expires date
-    //         "Set-Cookie": `token=${responseLogin.token}; HttpOnly; Path=/; Expires=Fri, 31 Dec 9999 23:59:59 GMT`,
-    //     },
-    // });
     const response = NextResponse.json(responseLogin, { status: 200 });
     response.cookies.set("token", responseLogin.token, {
         httpOnly: true,
@@ -33,7 +25,11 @@ export async function POST(req: Request) {
         sameSite: "strict",
         expires: new Date("9999-12-31T23:59:59.000Z"),
     });
-    response.headers.set("Access-Control-Allow-Origin", "*");
+    // response.headers.set("Access-Control-Allow-Origin", "*");
+    response.headers.set(
+        "Access-Control-Allow-Origin",
+        "https://omong.galihsuks.com"
+    );
     response.headers.set("Access-Control-Allow-Credentials", "true");
     response.headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
     response.headers.set(
@@ -41,10 +37,4 @@ export async function POST(req: Request) {
         "Content-Type, Authorization"
     );
     return response;
-    // return NextResponse.json(responseLogin, {
-    //     status: 200,
-    //     headers: {
-    //         "Set-Cookie": `token=${responseLogin.token}; HttpOnly; Path=/; Max-Age=86400`,
-    //     },
-    // });
 }
