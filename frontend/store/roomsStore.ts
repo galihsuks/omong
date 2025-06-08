@@ -28,10 +28,12 @@ interface IRooms {
     tipe: string;
     anggota: anggota[];
     createdAt: string;
+    updatedAt: string;
     lastchat: IChat | null;
     chats: IChat[];
     chatsUnread: number;
     online: boolean;
+    typing: string[]; //array nama user
 }
 
 interface RoomsStore {

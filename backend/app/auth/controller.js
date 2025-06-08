@@ -95,6 +95,10 @@ const logout = async (req, res) => {
             { email: req.user.email },
             {
                 $pull: { token: token._id },
+                $set: {
+                    "online.status": false,
+                    "online.last": Date.now(),
+                },
             }
         );
         await Token.findByIdAndDelete(token._id);

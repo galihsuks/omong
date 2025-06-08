@@ -70,10 +70,18 @@ export default function Chat({ params }: { params: { id: string } }) {
     const refContainerChat = useRef<HTMLDivElement>(null);
     const [room, setRoom] = useState<IRoom | null>(null);
     const { email, id: idUser, nama, token } = useUserStore();
-    const { connect, subscribeRoom, unsubscribeRoom, isConnected, online } =
-        useWsStore();
+    const {
+        connect,
+        typing,
+        subscribeRoom,
+        unsubscribeRoom,
+        isConnected,
+        online,
+    } = useWsStore();
     const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
     const inputChatRef = useRef<HTMLInputElement>(null);
+    const typingTimeout = useRef<NodeJS.Timeout | null>(null);
+    const [mengetik, setMengetik] = useState<string[]>([]);
 
     const scrollToIndex = (index: number) => {
         const target = itemRefs.current[index];
@@ -84,7 +92,6 @@ export default function Chat({ params }: { params: { id: string } }) {
 
     useEffect(() => {
         if (!email) {
-            // clearUser();
             return router.replace("/");
         }
         async function fetchDataRoom() {
@@ -135,32 +142,20 @@ export default function Chat({ params }: { params: { id: string } }) {
                             chats: room.chats.filter((c) => c._id != chat_id),
                         });
                         break;
-                    // case "seen":
-                    //     setRooms(
-                    //         rooms.map((r) => {
-                    //             if (
-                    //                 r._id == room._id &&
-                    //                 chats.includes(r.lastchat?._id)
-                    //             ) {
-                    //                 return {
-                    //                     ...r,
-                    //                     lastchat: r.lastchat
-                    //                         ? {
-                    //                                 ...r.lastchat,
-                    //                                 seenUsers: [
-                    //                                     ...r.lastchat
-                    //                                         .seenUsers,
-                    //                                     addToSeenUsers,
-                    //                                 ],
-                    //                             }
-                    //                         : null,
-                    //                 };
-                    //             } else return r;
-                    //         })
-                    //     );
-                    //     break;
                     default:
                         break;
+                }
+            } else if (data.tipe == "typing") {
+                const datanya = data.data;
+                const { user_nama, room_id, status } = datanya;
+                if (status) {
+                    setMengetik(
+                        mengetik.includes(user_nama)
+                            ? mengetik
+                            : [...mengetik, user_nama]
+                    );
+                } else {
+                    setMengetik(mengetik.filter((t) => t != user_nama));
                 }
             }
         };
@@ -188,7 +183,6 @@ export default function Chat({ params }: { params: { id: string } }) {
 
     const handleSendMessage = (e: SyntheticEvent) => {
         e.preventDefault();
-        console.log(formAddChat);
         inputChatRef.current?.blur();
         if (formAddChat.pesan) {
             (async () => {
@@ -224,8 +218,6 @@ export default function Chat({ params }: { params: { id: string } }) {
                         },
                     },
                 });
-                console.log("Berhasil buat chat");
-                console.log(result);
             })();
         }
     };
@@ -245,6 +237,20 @@ export default function Chat({ params }: { params: { id: string } }) {
             });
         inputChatRef.current?.focus();
     };
+
+    useEffect(() => {
+        if (nama && room) {
+            if (formAddChat.pesan) {
+                typing(nama, room._id, true);
+                if (typingTimeout.current) clearTimeout(typingTimeout.current);
+                typingTimeout.current = setTimeout(() => {
+                    typing(nama, room._id, false);
+                }, 2000);
+            } else {
+                typing(nama, room._id, false);
+            }
+        }
+    }, [formAddChat.pesan]);
 
     return (
         <>
@@ -319,6 +325,19 @@ export default function Chat({ params }: { params: { id: string } }) {
                         </>
                     )}
                 </div>
+                <div
+                    className={`mengetik ${mengetik.length > 0 ? "show" : ""}`}
+                >
+                    <p
+                        className="font-semibold text-center"
+                        style={{ fontSize: "10px" }}
+                    >
+                        {mengetik.length > 1
+                            ? `${mengetik.length} orang`
+                            : mengetik.join("").split(" ")[0]}{" "}
+                        mengetik
+                    </p>
+                </div>
                 <form onSubmit={handleSendMessage}>
                     <div className="px-5 py-3 input-chat">
                         <div
@@ -372,6 +391,7 @@ export default function Chat({ params }: { params: { id: string } }) {
                                         pesan: e.target.value,
                                     });
                                 }}
+                                disabled={room ? false : true}
                                 ref={inputChatRef}
                                 value={formAddChat.pesan}
                             />

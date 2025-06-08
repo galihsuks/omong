@@ -44,10 +44,12 @@ interface IRooms {
     tipe: string;
     anggota: anggota[];
     createdAt: string;
+    updatedAt: string;
     lastchat: IChat | null;
     chats: IChat[];
     chatsUnread: number;
     online: boolean;
+    typing: string[]; //array nama user
 }
 
 export default function Room() {
@@ -79,7 +81,12 @@ export default function Room() {
                 return router.replace("/");
             }
             console.log(result);
-            setRooms(result);
+            setRooms(
+                result.map((e: IRooms) => ({
+                    ...e,
+                    typing: [],
+                }))
+            );
             setLoading(false);
         })();
 
@@ -114,21 +121,26 @@ export default function Room() {
                     } = datanya;
                     switch (action) {
                         case "add":
-                            setRooms(
-                                rooms.map((r) => {
-                                    if (r._id == room._id) {
-                                        return {
-                                            ...r,
-                                            lastchat: dataWithoutAction,
-                                            chatsUnread:
-                                                dataWithoutAction.idPengirim
-                                                    ._id == idUser
-                                                    ? r.chatsUnread
-                                                    : r.chatsUnread + 1,
-                                        };
-                                    } else return r;
-                                })
+                            const roomsLainnya = rooms.filter(
+                                (e) => e._id != room._id
                             );
+                            const roomCurrent = rooms.find(
+                                (e) => e._id == room._id
+                            );
+                            if (roomCurrent) {
+                                setRooms([
+                                    {
+                                        ...roomCurrent,
+                                        lastchat: dataWithoutAction,
+                                        chatsUnread:
+                                            dataWithoutAction.idPengirim._id ==
+                                            idUser
+                                                ? roomCurrent.chatsUnread
+                                                : roomCurrent.chatsUnread + 1,
+                                    },
+                                    ...roomsLainnya,
+                                ]);
+                            }
                             break;
                         case "delete":
                             setRooms(
@@ -169,6 +181,36 @@ export default function Room() {
                             break;
                         default:
                             break;
+                    }
+                } else if (data.tipe == "typing") {
+                    const datanya = data.data;
+                    const { user_nama, room_id, status } = datanya;
+                    if (status) {
+                        setRooms(
+                            rooms.map((r) => {
+                                if (r._id == room_id) {
+                                    return {
+                                        ...r,
+                                        typing: r.typing.includes(user_nama)
+                                            ? r.typing
+                                            : [...r.typing, user_nama],
+                                    };
+                                } else return r;
+                            })
+                        );
+                    } else {
+                        setRooms(
+                            rooms.map((r) => {
+                                if (r._id == room_id) {
+                                    return {
+                                        ...r,
+                                        typing: r.typing.filter(
+                                            (t) => t != user_nama
+                                        ),
+                                    };
+                                } else return r;
+                            })
+                        );
                     }
                 }
             };
@@ -263,6 +305,11 @@ export default function Room() {
                                     {rooms.map((room, ind_room) => {
                                         return (
                                             <ItemRoom
+                                                typing={
+                                                    room.typing.length > 1
+                                                        ? `${room.typing.length} orang`
+                                                        : room.typing.join("")
+                                                }
                                                 room={room}
                                                 ind_room={ind_room}
                                                 idUser={idUser}

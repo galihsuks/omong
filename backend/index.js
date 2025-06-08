@@ -72,7 +72,8 @@ server.on("connection", (socket, req) => {
             //     tipe: ["typing", "chat", "seen", "subscribe" , "unsubscribe", "room", "online"],
             //     data: {
             //         typing: {
-            //             user_id,
+            //             user_nama,
+            //             status: boolean,
             //             room_id,
             //         },
             //         chat: {
@@ -133,14 +134,14 @@ server.on("connection", (socket, req) => {
                     if (!rooms[room_id]) rooms[room_id] = new Set();
                     rooms[room_id].add(socket);
                     clients.get(socket).rooms.add(room_id);
-                    console.log(`Socket subscribed to room ${room_id}`);
+                    // console.log(`Socket subscribed to room ${room_id}`);
                     break;
                 }
                 case "unsubscribe": {
                     const room_id = data.room_id;
                     rooms[room_id]?.delete(socket);
                     clients.get(socket).rooms.delete(room_id);
-                    console.log(`Socket unsubscribed from room ${room_id}`);
+                    // console.log(`Socket unsubscribed from room ${room_id}`);
                     break;
                 }
                 case "chat": {
@@ -166,19 +167,24 @@ server.on("connection", (socket, req) => {
                             clientData.user &&
                             users_id.includes(clientData.user.iduser)
                         ) {
-                            // targetSockets.push(clientSocket);
                             clientSocket.send(msgToSend);
                         }
                     });
                     break;
-                    // targetSockets sekarang berisi semua socket yang user.iduser-nya ada di users_id
-                    // clients.get
-                    // clients.forEach((clientData, clientSocket) => {
-                    //     console.log("client Data");
-                    //     console.log(clientData);
-                    // });
                 }
-                // case "typing":
+                case "typing": {
+                    const room_id = data.room_id;
+                    const msgToSend = JSON.stringify({ tipe, data });
+                    rooms[room_id]?.forEach((client) => {
+                        if (
+                            client !== socket &&
+                            client.readyState === WebSocket.OPEN
+                        ) {
+                            client.send(msgToSend);
+                        }
+                    });
+                    break;
+                }
                 default:
                     console.log("Tipe data tidak dikenal");
                     break;
@@ -192,8 +198,8 @@ server.on("connection", (socket, req) => {
         const { rooms: joinedRooms, user } = clients.get(socket) || {};
         joinedRooms?.forEach((roomId) => rooms[roomId]?.delete(socket));
         if (user) {
-            console.log("User yang di buat offline");
-            console.log(user);
+            // console.log("User yang di buat offline");
+            // console.log(user);
             (async () => {
                 const fetchonline = await fetch(
                     `${process.env.BASE_URL_BACKEND}/user/online/0`,

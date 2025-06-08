@@ -87,8 +87,6 @@ const ItemChat: React.FC<ItemChatProps> = ({
         if (response.status != 200) {
             return setEror(result.pesan);
         }
-        console.log("Berhasil dihapus");
-        console.log(result);
     };
 
     function compareDates(date1: string, date2: string) {

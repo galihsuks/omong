@@ -45,7 +45,9 @@ const getRoom = async (req, res) => {
         }
         let rooms = await Room.find({
             anggota: { $all: [req.user.id] },
-        }).populate("anggota", "nama email online");
+        })
+            .sort({ updatedAt: -1 })
+            .populate("anggota", "nama email online");
         let roomsFix = [];
         for (let i = 0; i < rooms.length; i++) {
             const r = rooms[i];

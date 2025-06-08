@@ -20,6 +20,8 @@ type WsStore = {
     unsubscribeRoom: (roomId: string, handler: MessageHandler) => void;
     messageHandlerUser: MessageHandler | null;
     setMessageHandlerUser: (handler: MessageHandler | null) => void;
+    reset: () => void;
+    typing: (namaUser: string, roomId: string, status: boolean) => void;
 };
 
 export const useWsStore = create<WsStore>((set, get) => ({
@@ -73,10 +75,32 @@ export const useWsStore = create<WsStore>((set, get) => ({
 
         ws.onclose = () => {
             console.log("❌ WebSocket closed");
-            set({ isConnected: false, ws: null });
+            set({
+                ws: null,
+                isConnected: false,
+                messageHandlers: {},
+                pendingSubscriptions: [],
+                messageHandlerUser: null,
+            });
         };
 
         set({ ws });
+    },
+
+    typing: (namaUser, roomId, status) => {
+        const ws = get().ws;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(
+                JSON.stringify({
+                    tipe: "typing",
+                    data: {
+                        room_id: roomId,
+                        user_nama: namaUser,
+                        status,
+                    },
+                })
+            );
+        }
     },
 
     online: (user) => {
@@ -123,6 +147,13 @@ export const useWsStore = create<WsStore>((set, get) => ({
                     data: { room_id: roomId },
                 })
             );
+        }
+    },
+
+    reset: () => {
+        const ws = get().ws;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.close();
         }
     },
 }));

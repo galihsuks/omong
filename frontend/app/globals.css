@@ -197,7 +197,7 @@ p {
 }
 
 .input-chat {
-    z-index: 2;
+    z-index: 3;
     width: 100%;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
 }
@@ -410,4 +410,21 @@ p {
 .container-anggota-add-room {
     display: flex;
     flex-direction: column;
+}
+
+.mengetik {
+    padding-block: 0px;
+    color: white;
+    backdrop-filter: blur(0px);
+    background-color: rgba(255, 255, 255, 0);
+    overflow: hidden;
+    max-height: 0px;
+    transition: 0.2s;
+}
+.mengetik.show {
+    padding-block: 10px;
+    backdrop-filter: blur(20px);
+    background-color: rgba(228, 0, 159, 0.2);
+    max-height: 40px;
+    transition: 0.2s;
 }

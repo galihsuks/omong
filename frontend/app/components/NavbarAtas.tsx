@@ -11,6 +11,7 @@ import { HiOutlineLogout } from "react-icons/hi";
 import { RiLetterSpacing2, RiSearch2Line } from "react-icons/ri";
 import { VscTypeHierarchySub } from "react-icons/vsc";
 import { FiCheckSquare } from "react-icons/fi";
+import { useWsStore } from "@/store/wsStore";
 
 interface anggota {
     email: string;
@@ -33,6 +34,7 @@ export default function NavbarAtas() {
     });
     const [jenisTambah, setJenisTambah] = useState("new");
     const { clearUser } = useUserStore();
+    const { reset } = useWsStore();
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [optAnggota, setOptAnggota] = useState<anggota[]>([]);
     const [searchAnggota, setSearchAnggota] = useState("");
@@ -105,6 +107,7 @@ export default function NavbarAtas() {
 
     function handleClickLogout() {
         async function funFetchLogin() {
+            reset();
             const response = await fetch("/api/auth/logout", {
                 method: "POST",
                 headers: {
