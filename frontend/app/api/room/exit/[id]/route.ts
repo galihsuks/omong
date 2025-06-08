@@ -7,22 +7,14 @@ export async function GET(
 ) {
     const token = cookies().get("token")?.value;
     const fetchRooms = await fetch(
-        "https://omong.galihsuks.com/backend/room/exit/" + params.id,
+        `${process.env.BACKEND_URL}/room/exit/${params.id}`,
         {
             headers: {
                 Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
             },
         }
     );
-
     const responseRooms = await fetchRooms.json();
-
-    if (fetchRooms.status != 200) {
-        return NextResponse.json(
-            { error: responseRooms.pesan },
-            { status: fetchRooms.status }
-        );
-    }
-
-    return NextResponse.json(responseRooms);
+    return NextResponse.json(responseRooms, { status: fetchRooms.status });
 }

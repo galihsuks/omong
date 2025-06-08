@@ -9,6 +9,7 @@ interface ToastProps {
     api?: string;
     callbackurl?: string;
     openState: any;
+    show: boolean;
 }
 
 const Toast: React.FC<ToastProps> = ({
@@ -17,6 +18,7 @@ const Toast: React.FC<ToastProps> = ({
     api,
     callbackurl,
     openState,
+    show,
 }) => {
     const router = useRouter();
     function handleClick() {
@@ -30,7 +32,7 @@ const Toast: React.FC<ToastProps> = ({
     }
 
     return (
-        <div className="toast">
+        <div className={`toast ${show ? "show" : ""}`}>
             <div className="container-toast px-5 py-4">
                 <h1 className="font-bold">{judul}</h1>
                 <p>{subjudul}</p>

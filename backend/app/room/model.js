@@ -22,11 +22,6 @@ const RoomSchema = mongoose.Schema(
                 ref: "Chat",
             },
         ],
-        lastchat: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Chat",
-            default: null,
-        },
     },
     {
         timestamps: true,

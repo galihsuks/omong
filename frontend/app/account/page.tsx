@@ -4,16 +4,10 @@ import { useEffect, useState } from "react";
 import NavbarAtas from "../components/NavbarAtas";
 import NavbarBawah from "../components/NavbarBawah";
 import { useRouter } from "next/navigation";
-
-// interface IUser {
-//     _id: string;
-//     emai: string;
-//     sandi: string;
-//     nama: string;
-//     createdAt: string;
-//     updatedAt: string;
-//     __v: number;
-// }
+import { HiOutlineMail } from "react-icons/hi";
+import { RiLetterSpacing2, RiLockPasswordLine } from "react-icons/ri";
+import { FaRegEye, FaRegEyeSlash } from "react-icons/fa";
+import useUserStore from "@/store/userStore";
 
 export default function Account() {
     const router = useRouter();
@@ -27,10 +21,11 @@ export default function Account() {
     const [submitBtn, setSubmitBtn] = useState(false);
     const [confirmPass, setConfirmPass] = useState(false);
     const [info, setInfo] = useState("");
+    const { clearUser } = useUserStore();
 
     useEffect(() => {
         async function fetchDataRoom() {
-            const response = await fetch("/api/account");
+            const response = await fetch("/api/user");
             const result = await response.json();
             if (response.status === 401) {
                 return router.replace("/");
@@ -85,7 +80,7 @@ export default function Account() {
 
     const handleClickUbah = async () => {
         if (submitBtn) {
-            const response = await fetch("/api/account", {
+            const response = await fetch("/api/user", {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
@@ -95,11 +90,13 @@ export default function Account() {
                 ),
             });
             const result = await response.json();
+            console.log(result);
             if (response.status === 401) {
-                setInfo(result.error);
-                return setEror(result.error);
+                clearUser();
+                return router.replace("/");
             }
             setChangePass(false);
+            setInfo(result.pesan);
             setInfo("Data berhasil diubah");
         }
     };
@@ -108,135 +105,152 @@ export default function Account() {
         <div className="konten">
             {eror && (
                 <div
-                    style={{ flex: "1" }}
+                    style={{ flex: "1", borderRadius: "3em" }}
                     className="p-5 flex justify-center items-center"
                 >
                     {eror}
                 </div>
             )}
-            <NavbarAtas />
-            <div style={{ flex: "1" }} className="p-5">
-                <h1 className="text-xl font-bold">Akun Saya</h1>
-                <p className="text-sm text-gray-500">
-                    Berikut informasi mengenai akun saya
-                </p>
-                <hr className="my-5" />
-                {info && (
-                    <div className="p-4 mb-5 w-full sm:max-w-sm flex justify-center items-center border-2 border-indigo-500">
-                        {info}
-                    </div>
-                )}
-                <div className="mb-3">
-                    <label
-                        htmlFor="email"
-                        className="block text-sm font-medium leading-6 text-gray-900"
-                    >
-                        Email
-                    </label>
-                    <div className="mt-2">
-                        <input
-                            onChange={(e) => {
-                                setEmail(e.target.value);
-                            }}
-                            value={email}
-                            id="email"
-                            name="email"
-                            type="email"
-                            required
-                            className="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                        />
-                    </div>
-                </div>
-                <div className="mb-3">
-                    <label
-                        htmlFor="nama"
-                        className="block text-sm font-medium leading-6 text-gray-900"
-                    >
-                        Nama Panggilan
-                    </label>
-                    <div className="mt-2">
-                        <input
-                            onChange={(e) => {
-                                setNama(e.target.value);
-                            }}
-                            value={nama}
-                            id="nama"
-                            name="nama"
-                            type="text"
-                            required
-                            className="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                        />
-                    </div>
-                </div>
-                {changePass && (
-                    <>
-                        <div className="mb-3">
-                            <label
-                                htmlFor="sandi"
-                                className="block text-sm font-medium leading-6 text-gray-900"
-                            >
-                                Sandi Baru
-                            </label>
-                            <div className="mt-2">
-                                <input
-                                    onChange={(e) => {
-                                        setSandi(e.target.value);
-                                    }}
-                                    value={sandi}
-                                    name="sandi"
-                                    type="password"
-                                    className="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                                />
-                            </div>
-                        </div>
-                        <div className="mb-3">
-                            <label
-                                htmlFor="confimsandi"
-                                className="block text-sm font-medium leading-6 text-gray-900"
-                            >
-                                Konfirmasi Sandi Baru
-                            </label>
-                            <div className="mt-2">
-                                <input
-                                    onChange={(e) => {
-                                        setConfirmSandi(e.target.value);
-                                    }}
-                                    value={confirmSandi}
-                                    name="confirmsandi"
-                                    type="password"
-                                    className="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                                />
-                            </div>
-                            {!confirmPass && (
-                                <p className="text-red-500 text-sm">
-                                    Konfirmasi sandi masih salah
-                                </p>
-                            )}
-                        </div>
-                    </>
-                )}
-
-                <div className="flex justify-center mb-2 mt-5">
-                    <button
-                        onClick={() => {
-                            setChangePass((prev) => !prev);
+            <div style={{ flex: "1" }} className="px-5 pt-5 flex flex-col">
+                <NavbarAtas />
+                <div style={{ flex: "1" }} className="p-5 text-white">
+                    <div
+                        style={{
+                            flex: 1,
+                            overflowY: "scroll",
+                            position: "relative",
+                            height: "100%",
                         }}
-                        className="font-bold text-indigo-600"
+                        className="hidden-scrollbar"
                     >
-                        {changePass ? "Batal ganti sandi" : "Ganti sandi"}
-                    </button>
-                </div>
-                <div>
-                    <button
-                        type="button"
-                        className={
-                            "flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 " +
-                            (submitBtn ? "hover:bg-indigo-500" : "btn-disabled")
-                        }
-                        onClick={handleClickUbah}
-                    >
-                        Ubah
-                    </button>
+                        <div
+                            className="py-2"
+                            style={{
+                                position: "absolute",
+                                width: "100%",
+                            }}
+                        >
+                            <h1 className="text-lg font-bold">Akun Saya</h1>
+                            <p className="text-indigo-200 mb-6">
+                                Berikut informasi mengenai akun saya
+                            </p>
+                            {info && (
+                                <div
+                                    style={{ borderRadius: "1em" }}
+                                    className="p-4 mb-5 w-full flex justify-center items-center border-2 border-indigo-500"
+                                >
+                                    {info}
+                                </div>
+                            )}
+                            <div className="formulir mb-5">
+                                <label className="text-indigo-100">Email</label>
+                                <div className="input flex items-center gap-3 px-3">
+                                    <HiOutlineMail />
+                                    <input
+                                        onChange={(e) => {
+                                            setEmail(e.target.value);
+                                        }}
+                                        value={email}
+                                        type="email"
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            <div className="formulir mb-5">
+                                <label className="text-indigo-100">Nama</label>
+                                <div className="input flex items-center gap-3 px-3">
+                                    <RiLetterSpacing2 />
+                                    <input
+                                        onChange={(e) => {
+                                            setNama(e.target.value);
+                                        }}
+                                        value={nama}
+                                        type="text"
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            {changePass && (
+                                <>
+                                    <div className="formulir mb-5">
+                                        <label className="text-indigo-100">
+                                            Sandi
+                                        </label>
+                                        <div className="input flex items-center gap-3 px-3">
+                                            <RiLockPasswordLine />
+                                            <input
+                                                onChange={(e) => {
+                                                    setSandi(e.target.value);
+                                                }}
+                                                value={sandi}
+                                                type="password"
+                                                name="sandi"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="formulir mb-1">
+                                        <label className="text-indigo-100">
+                                            Konfirmasi Sandi
+                                        </label>
+                                        <div className="input flex items-center gap-3 px-3">
+                                            <RiLockPasswordLine />
+                                            <input
+                                                onChange={(e) => {
+                                                    setConfirmSandi(
+                                                        e.target.value
+                                                    );
+                                                }}
+                                                value={confirmSandi}
+                                                type="password"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                    {!confirmPass && (
+                                        <p className="text-red-300">
+                                            Konfirmasi sandi masih salah
+                                        </p>
+                                    )}
+                                </>
+                            )}
+
+                            <div className="flex justify-center mb-2 mt-5">
+                                <button
+                                    onClick={() => {
+                                        setChangePass((prev) => !prev);
+                                    }}
+                                    className="text-white font-semibold"
+                                >
+                                    <p>
+                                        {changePass
+                                            ? "Batal ganti sandi"
+                                            : "Ganti sandi"}
+                                    </p>
+                                </button>
+                            </div>
+                            <div>
+                                <button
+                                    type="button"
+                                    style={{
+                                        borderRadius: "3em",
+                                    }}
+                                    className={`flex w-full justify-center px-3 py-1.5 font-semibold ${
+                                        submitBtn
+                                            ? "bg-indigo-500 hover:bg-indigo-700"
+                                            : "opacity-30 bg-indigo-100 text-indigo-600"
+                                    }`}
+                                    // className={
+                                    //     "flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 " +
+                                    //     (submitBtn ? "hover:bg-indigo-500" : "btn-disabled")
+                                    // }
+                                    onClick={handleClickUbah}
+                                >
+                                    Ubah
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             <NavbarBawah path="/account" />

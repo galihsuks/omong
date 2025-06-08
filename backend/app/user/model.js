@@ -15,6 +15,16 @@ const UserSchema = mongoose.Schema(
             type: String,
             required: [true, "Isi nama Anda"],
         },
+        online: {
+            status: {
+                type: Boolean,
+                default: false,
+            },
+            last: {
+                type: Date,
+                default: null,
+            },
+        },
         token: [
             {
                 type: mongoose.Schema.Types.ObjectId,

@@ -12,8 +12,8 @@ const authenticateToken = require("../token/route.js");
 router.get("/join/:id", authenticateToken, joinRoom); //id room
 router.get("/exit/:id", authenticateToken, exitRoom); //id room
 router.get("/:id", authenticateToken, getRoom);
+router.put("/:id", authenticateToken, updateRoom);
 router.get("/", authenticateToken, getRoom);
 router.post("/", authenticateToken, addRoom);
-router.put("/:id", authenticateToken, updateRoom);
 
 module.exports = router;

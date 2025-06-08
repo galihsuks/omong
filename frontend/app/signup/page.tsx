@@ -3,8 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { SyntheticEvent, useEffect, useState } from "react";
-import imgLogo from "@/app/img/logo.svg";
+import { SyntheticEvent, useEffect, useRef, useState } from "react";
+import imgLogo from "@/app/img/logo_white.svg";
+import { HiOutlineMail } from "react-icons/hi";
+import { RiLetterSpacing2, RiLockPasswordLine } from "react-icons/ri";
+import { FaRegEye, FaRegEyeSlash } from "react-icons/fa";
+import useUserStore from "@/store/userStore";
 
 export default function Signup() {
     const router = useRouter();
@@ -14,39 +18,45 @@ export default function Signup() {
         sandi: "",
         confirmsandi: "",
     });
+    const { email } = useUserStore();
     const [eror, setEror] = useState<string>("");
-    const [showSandi, setShowSandi] = useState(false);
+    const [showPass, setShowPass] = useState<boolean>(false);
+    const [showConfirmPass, setShowConfirmPass] = useState<boolean>(false);
+    const emailRef = useRef<HTMLInputElement>(null);
+    const namaRef = useRef<HTMLInputElement>(null);
+    const sandiRef = useRef<HTMLInputElement>(null);
+    const confirmSandiRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        async function cekLogin() {
-            const cekIsLogin = await fetch("/api/islogin");
-            if (cekIsLogin.status === 200) return router.replace("/room");
+        if (email) {
+            router.push("/room");
         }
-        cekLogin();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     function handleClick(e: SyntheticEvent) {
-        setEror("");
         e.preventDefault();
+        setEror("");
+        emailRef.current?.blur();
+        namaRef.current?.blur();
+        sandiRef.current?.blur();
+        confirmSandiRef.current?.blur();
         if (value.confirmsandi != value.sandi) {
             return setEror("Konfirmasi sandi tidak sesuai");
         }
         async function funFetchLogin() {
-            const response = await fetch("/api/signup", {
+            const response = await fetch("/api/auth/signup", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify(value),
             });
-
             const result = await response.json();
-            console.log(result);
-            if (response.status === 401) {
-                return setEror(result.error);
+            if (response.status != 200) {
+                return setEror(result.pesan);
             }
-            setEror(result.data);
+            setEror(result.pesan);
             setValue({
                 email: "",
                 nama: "",
@@ -67,129 +77,149 @@ export default function Signup() {
     return (
         <>
             <div
-                style={{ height: "100svh" }}
-                className="flex gap-3 flex-col justify-center items-center px-6 py-12 lg:px-8"
+                style={{
+                    height: "100svh",
+                    minHeight: "600px",
+                    backgroundImage:
+                        "linear-gradient(to right top, #4f46e5, #6f46e6, #8946e6, #a046e6, #b446e5)",
+                }}
+                className="flex justify-center items-center px-10"
             >
-                <div className="flex flex-col items-center">
-                    <div>
+                <div
+                    style={{ maxWidth: "450px" }}
+                    className="w-full flex flex-col justify-center items-center"
+                >
+                    <div className="mb-4">
+                        <p className="text-white font-bold mb-2">
+                            Register Member
+                        </p>
                         <Image src={imgLogo} alt="omong" width={200} />
                     </div>
-                    <p className="text-gray-500 text-sm">
-                        Isi form dibawah untuk mendaftar
-                    </p>
-                </div>
-                {eror && (
-                    <div className="p-5 w-full sm:max-w-sm flex justify-center items-center border-2 border-indigo-500">
-                        {eror}
-                    </div>
-                )}
-                <div className="w-full sm:max-w-sm">
-                    <form onSubmit={handleClick}>
-                        <div className="flex flex-col gap-2 mb-5">
-                            <div>
-                                <label
-                                    htmlFor="email"
-                                    className="block text-sm font-medium leading-6 text-gray-900"
-                                >
-                                    Email
-                                </label>
-                                <div>
-                                    <input
-                                        required
-                                        value={value.email}
-                                        id="email"
-                                        name="email"
-                                        type="email"
-                                        autoComplete="email"
-                                        className="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                                        onChange={handleChange}
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label
-                                    htmlFor="nama"
-                                    className="block text-sm font-medium leading-6 text-gray-900"
-                                >
-                                    Nama
-                                </label>
-                                <div>
-                                    <input
-                                        required
-                                        value={value.nama}
-                                        id="nama"
-                                        name="nama"
-                                        type="text"
-                                        className="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                                        onChange={handleChange}
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label
-                                    htmlFor="sandi"
-                                    className="block text-sm font-medium leading-6 text-gray-900"
-                                >
-                                    Sandi
-                                </label>
-                                <div>
-                                    <input
-                                        required
-                                        value={value.sandi}
-                                        id="sandi"
-                                        name="sandi"
-                                        type={showSandi ? "text" : "password"}
-                                        className="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                                        onChange={handleChange}
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label
-                                    htmlFor="confirmsandi"
-                                    className="block text-sm font-medium leading-6 text-gray-900"
-                                >
-                                    Konfirmasi Sandi
-                                </label>
-                                <div>
-                                    <input
-                                        required
-                                        value={value.confirmsandi}
-                                        id="confirmsandi"
-                                        name="confirmsandi"
-                                        type={showSandi ? "text" : "password"}
-                                        className="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                                        onChange={handleChange}
-                                    />
-                                </div>
-                            </div>
-                            <div className="flex gap-2">
+                    {eror && (
+                        <div
+                            style={{
+                                fontSize: "12px",
+                                backgroundColor: "rgba(255, 0, 0, 0.1)",
+                            }}
+                            className="text-white font-semibold border border-red-500 px-4 py-2 rounded-md mt-2"
+                        >
+                            {eror}
+                        </div>
+                    )}
+                    <form onSubmit={handleClick} className="w-full mt-5">
+                        <div className="formulir mb-5">
+                            <label className="text-indigo-100">Email</label>
+                            <div className="input flex items-center gap-3 px-3">
+                                <HiOutlineMail />
                                 <input
-                                    type="checkbox"
-                                    id="show-sandi"
-                                    onChange={() => {
-                                        setShowSandi((prev) => !prev);
-                                    }}
+                                    value={value.email}
+                                    type="email"
+                                    name="email"
+                                    required
+                                    ref={emailRef}
+                                    onChange={handleChange}
                                 />
-                                <label htmlFor="show-sandi" className="text-sm">
-                                    Tampilkan sandi dan confirm sandi
-                                </label>
                             </div>
                         </div>
+                        <div className="formulir mb-5">
+                            <label className="text-indigo-100">Nama</label>
+                            <div className="input flex items-center gap-3 px-3">
+                                <RiLetterSpacing2 />
+                                <input
+                                    value={value.nama}
+                                    type="text"
+                                    name="nama"
+                                    required
+                                    ref={namaRef}
+                                    onChange={handleChange}
+                                />
+                            </div>
+                        </div>
+                        <div className="formulir mb-5">
+                            <label className="text-indigo-100">Sandi</label>
+                            <div className="input flex items-center gap-3 px-3">
+                                <RiLockPasswordLine />
+                                <input
+                                    value={value.sandi}
+                                    type={showPass ? "text" : "password"}
+                                    name="sandi"
+                                    required
+                                    ref={sandiRef}
+                                    onChange={handleChange}
+                                />
+                                {showPass ? (
+                                    <FaRegEyeSlash
+                                        onClick={() => setShowPass(false)}
+                                        style={{
+                                            opacity: 1,
+                                            cursor: "pointer",
+                                        }}
+                                    />
+                                ) : (
+                                    <FaRegEye
+                                        onClick={() => setShowPass(true)}
+                                        style={{
+                                            opacity: 0.5,
+                                            cursor: "pointer",
+                                        }}
+                                    />
+                                )}
+                            </div>
+                        </div>
+                        <div className="formulir mb-10">
+                            <label className="text-indigo-100">
+                                Konfirmasi Sandi
+                            </label>
+                            <div className="input flex items-center gap-3 px-3">
+                                <RiLockPasswordLine />
+                                <input
+                                    value={value.confirmsandi}
+                                    type={showConfirmPass ? "text" : "password"}
+                                    name="confirmsandi"
+                                    required
+                                    ref={confirmSandiRef}
+                                    onChange={handleChange}
+                                />
+                                {showConfirmPass ? (
+                                    <FaRegEyeSlash
+                                        onClick={() =>
+                                            setShowConfirmPass(false)
+                                        }
+                                        style={{
+                                            opacity: 1,
+                                            cursor: "pointer",
+                                        }}
+                                    />
+                                ) : (
+                                    <FaRegEye
+                                        onClick={() => setShowConfirmPass(true)}
+                                        style={{
+                                            opacity: 0.5,
+                                            cursor: "pointer",
+                                        }}
+                                    />
+                                )}
+                            </div>
+                        </div>
+
                         <div>
                             <button
                                 type="submit"
-                                className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                                style={{
+                                    borderRadius: "3em",
+                                    backgroundColor: "rgba(255, 255, 255, 0.1)",
+                                }}
+                                className="flex w-full justify-center text-white px-3 py-1.5 font-semibold hover:bg-indigo-500"
                             >
                                 Daftar
                             </button>
                         </div>
                     </form>
-                    <p className="mt-10 text-center text-sm text-gray-500">
-                        Sudah pernah daftar?
+                    <p className="mt-7 text-center text-indigo-100">
+                        Sudah pernah daftar?{" "}
                         <Link
                             href="/"
-                            className="ms-1 font-semibold leading-6 text-indigo-600 hover:text-indigo-500"
+                            className="text-white font-bold hover:text-indigo-100"
                         >
                             Login disini
                         </Link>

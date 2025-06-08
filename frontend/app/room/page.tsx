@@ -1,87 +1,227 @@
 "use client";
 
 import Link from "next/link";
-// import { cookies } from "next/headers";
 import NavbarAtas from "../components/NavbarAtas";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import NavbarBawah from "../components/NavbarBawah";
 import { useRouter } from "next/navigation";
+import useUserStore from "@/store/userStore";
+import ItemRoom from "./ItemRoom";
+import useRoomsStore from "@/store/roomsStore";
+import { useWsStore } from "@/store/wsStore";
+
+type MessageHandler = (data: any) => void;
+
+interface anggota {
+    email: string;
+    nama: string;
+    _id: string;
+    online: {
+        last: string;
+        status: boolean;
+    };
+}
+
+interface seen {
+    timestamp: string;
+    user: anggota;
+}
+
+interface IChat {
+    idChatReply: string | null;
+    _id: string;
+    pesan: string;
+    idPengirim: anggota;
+    idRoom: string;
+    createdAt: string;
+    updatedAt: string;
+    seenUsers: seen[];
+}
 
 interface IRooms {
     _id: string;
     nama: string;
-    anggota: [];
+    tipe: string;
+    anggota: anggota[];
     createdAt: string;
-    updatedAt: string;
-    __v: number;
-    lastchat: {
-        pesan: string;
-        idPengirim: string;
-        waktu: string;
-    };
+    lastchat: IChat | null;
+    chats: IChat[];
+    chatsUnread: number;
+    online: boolean;
 }
 
 export default function Room() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
-    const [responseRooms, setResponseRooms] = useState<IRooms[]>();
-    const [eror, setEror] = useState("");
+    const [eror, setEror] = useState();
+    const { email, id: idUser, nama, token, clearUser } = useUserStore();
+    const { rooms, setRooms } = useRoomsStore();
+    const {
+        connect,
+        subscribeRoom,
+        unsubscribeRoom,
+        isConnected,
+        online,
+        setMessageHandlerUser,
+    } = useWsStore();
 
     useEffect(() => {
-        async function fetchDataRoom() {
+        if (!email) {
+            // clearUser();
+            return router.replace("/");
+        }
+        connect();
+        (async () => {
             const response = await fetch("/api/room");
             const result = await response.json();
-            console.log(result);
             if (response.status === 401) {
+                clearUser();
                 return router.replace("/");
             }
-            setResponseRooms(result);
+            console.log(result);
+            setRooms(result);
             setLoading(false);
-        }
-        fetchDataRoom();
+        })();
+
+        return () => {
+            setMessageHandlerUser(null);
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // const token = cookies().get("token")?.value;
-    // const fetchRooms = await fetch("http://localhost:8080/room", {
-    //     cache: "no-store",
-    //     headers: {
-    //         Authorization: `Bearer ${token}`,
-    //     },
-    // });
-
-    // const responseRooms = await fetchRooms.json();
-    // if (fetchRooms.status != 200) {
-    //     return (
-    //         <div className="p-5 w-full sm:max-w-sm flex justify-center items-center border-2 border-indigo-500">
-    //             {responseRooms.pesan}
-    //         </div>
-    //     );
-    // }
-
-    function timeDifference(current: any, previous: any) {
-        var msPerMinute = 60 * 1000;
-        var msPerHour = msPerMinute * 60;
-        var msPerDay = msPerHour * 24;
-        var msPerMonth = msPerDay * 30;
-        var msPerYear = msPerDay * 365;
-
-        var elapsed = current - previous;
-
-        if (elapsed < msPerMinute) {
-            return Math.round(elapsed / 1000) + " sec";
-        } else if (elapsed < msPerHour) {
-            return Math.round(elapsed / msPerMinute) + " min";
-        } else if (elapsed < msPerDay) {
-            return Math.round(elapsed / msPerHour) + " hours";
-        } else if (elapsed < msPerMonth) {
-            return Math.round(elapsed / msPerDay) + " days";
-        } else if (elapsed < msPerYear) {
-            return Math.round(elapsed / msPerMonth) + " months";
-        } else {
-            return Math.round(elapsed / msPerYear) + " years ago";
+    useEffect(() => {
+        if (isConnected && email && idUser && nama && token) {
+            online({ email, id: idUser, nama, token });
         }
-    }
+    }, [isConnected, email, idUser, nama, token]);
+
+    useEffect(() => {
+        const arrHandleMessage = [] as MessageHandler[];
+
+        rooms.forEach((room) => {
+            const handleMessage = (data: any) => {
+                console.log(`📨 Dapat data dari WS (${room._id}):`, data);
+                if (data.tipe === "chat") {
+                    const datanya = data.data;
+                    const {
+                        action,
+                        lastchat,
+                        chatsUnread,
+                        chats,
+                        addToSeenUsers,
+                        room_id,
+                        ...dataWithoutAction
+                    } = datanya;
+                    switch (action) {
+                        case "add":
+                            setRooms(
+                                rooms.map((r) => {
+                                    if (r._id == room._id) {
+                                        return {
+                                            ...r,
+                                            lastchat: dataWithoutAction,
+                                            chatsUnread:
+                                                dataWithoutAction.idPengirim
+                                                    ._id == idUser
+                                                    ? r.chatsUnread
+                                                    : r.chatsUnread + 1,
+                                        };
+                                    } else return r;
+                                })
+                            );
+                            break;
+                        case "delete":
+                            setRooms(
+                                rooms.map((r) => {
+                                    if (r._id == room._id) {
+                                        return {
+                                            ...r,
+                                            lastchat,
+                                            chatsUnread,
+                                        };
+                                    } else return r;
+                                })
+                            );
+                            break;
+                        case "seen":
+                            setRooms(
+                                rooms.map((r) => {
+                                    if (
+                                        r._id == room._id &&
+                                        chats.includes(r.lastchat?._id)
+                                    ) {
+                                        return {
+                                            ...r,
+                                            lastchat: r.lastchat
+                                                ? {
+                                                      ...r.lastchat,
+                                                      seenUsers: [
+                                                          ...r.lastchat
+                                                              .seenUsers,
+                                                          addToSeenUsers,
+                                                      ],
+                                                  }
+                                                : null,
+                                        };
+                                    } else return r;
+                                })
+                            );
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            };
+            arrHandleMessage.push(handleMessage);
+        });
+        rooms.forEach((room, ind_room) => {
+            subscribeRoom(room._id, arrHandleMessage[ind_room]);
+        });
+
+        const handleMessageUser = (data: any) => {
+            if (data.tipe === "room") {
+                const datanya = data.data;
+                const { action, users_id, ...dataWithoutAction } = datanya;
+                switch (action) {
+                    case "add":
+                        setRooms([
+                            {
+                                ...dataWithoutAction,
+                                nama:
+                                    dataWithoutAction.tipe == "private"
+                                        ? dataWithoutAction.anggota.filter(
+                                              (a: anggota) => a._id != idUser
+                                          )[0].nama
+                                        : dataWithoutAction.nama,
+                                online:
+                                    dataWithoutAction.tipe == "private"
+                                        ? dataWithoutAction.anggota.filter(
+                                              (a: anggota) => a._id != idUser
+                                          )[0].online.status
+                                        : false,
+                            },
+                            ...rooms,
+                        ]);
+                        break;
+                    case "delete": {
+                        setRooms(
+                            rooms.filter((r) => r._id != dataWithoutAction._id)
+                        );
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            }
+        };
+        setMessageHandlerUser(handleMessageUser);
+
+        return () => {
+            rooms.forEach((room, ind_room) => {
+                unsubscribeRoom(room._id, arrHandleMessage[ind_room]);
+            });
+        };
+    }, [rooms]);
 
     return (
         <div className="konten">
@@ -93,60 +233,49 @@ export default function Room() {
                     {eror}
                 </div>
             )}
-            <NavbarAtas />
-            {loading ? (
-                <div
-                    style={{ flex: "1" }}
-                    className="p-5 flex justify-center items-center"
-                >
-                    Loading ...
-                </div>
-            ) : (
-                <>
-                    <div style={{ flex: 1, overflowY: "scroll" }}>
-                        <div className="">
-                            {responseRooms?.map(
-                                (room: IRooms, ind_room: number) => {
-                                    return (
-                                        <Link
-                                            href={"/room/" + room._id}
-                                            className="px-5 py-4 item-room"
-                                            key={ind_room}
-                                        >
-                                            <div className="foto">
-                                                {room.nama.charAt(0)}
-                                            </div>
-                                            <div style={{ flex: "1" }}>
-                                                <p className="nama">
-                                                    {room.nama}
-                                                </p>
-                                                {room.lastchat.pesan && (
-                                                    <p className="pesan">
-                                                        {room.lastchat.pesan}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            {room.lastchat.pesan && (
-                                                <>
-                                                    <p className="waktu text-sm">
-                                                        {timeDifference(
-                                                            Date.now(),
-                                                            Date.parse(
-                                                                room.lastchat
-                                                                    .waktu
-                                                            )
-                                                        )}
-                                                    </p>
-                                                </>
-                                            )}
-                                        </Link>
-                                    );
-                                }
+            <div style={{ flex: "1" }} className="px-5 pt-5 flex flex-col">
+                <NavbarAtas />
+                {loading ? (
+                    <div
+                        style={{ flex: "1" }}
+                        className="p-5 flex justify-center items-center text-white"
+                    >
+                        <p>Loading ..</p>
+                    </div>
+                ) : (
+                    <>
+                        <div
+                            style={{
+                                flex: 1,
+                                overflowY: "scroll",
+                                position: "relative",
+                            }}
+                            className="hidden-scrollbar"
+                        >
+                            {idUser && (
+                                <div
+                                    className="py-2"
+                                    style={{
+                                        position: "absolute",
+                                        width: "100%",
+                                    }}
+                                >
+                                    {rooms.map((room, ind_room) => {
+                                        return (
+                                            <ItemRoom
+                                                room={room}
+                                                ind_room={ind_room}
+                                                idUser={idUser}
+                                                key={ind_room}
+                                            />
+                                        );
+                                    })}
+                                </div>
                             )}
                         </div>
-                    </div>
-                </>
-            )}
+                    </>
+                )}
+            </div>
             <NavbarBawah path="/room" />
         </div>
     );

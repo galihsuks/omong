@@ -9,7 +9,7 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-    title: "Ngomongo",
+    title: "Omong",
     description: "Aplikasi chat buatan wong jowo",
 };
 

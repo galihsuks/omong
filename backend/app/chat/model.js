@@ -17,6 +17,23 @@ const ChatSchema = mongoose.Schema(
             ref: "Room",
             required: true,
         },
+        idChatReply: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Chat",
+            default: null,
+        },
+        seenUsers: [
+            {
+                timestamp: {
+                    type: Date,
+                    default: Date.now,
+                },
+                user: {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: "User",
+                },
+            },
+        ],
     },
     {
         timestamps: true,
@@ -35,23 +52,18 @@ ChatSchema.post("save", async function (doc) {
     }
 });
 
+const Chat = mongoose.model("Chat", ChatSchema);
+
 ChatSchema.post("findOneAndDelete", async function (doc) {
     if (!doc) return;
     try {
         const room = await Room.findById(doc.idRoom);
         await Room.findByIdAndUpdate(doc.idRoom, {
             $pull: { chats: doc._id },
-            lastchat:
-                room.chats.length == 1
-                    ? null
-                    : room.lastchat.equals(doc._id)
-                    ? room.chats[room.chats.length - 2]
-                    : room.lastchat,
         });
     } catch (error) {
         console.error("Error updating room after chat deletion", error);
     }
 });
 
-const Chat = mongoose.model("Chat", ChatSchema);
 module.exports = Chat;

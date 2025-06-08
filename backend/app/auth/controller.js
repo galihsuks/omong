@@ -14,11 +14,13 @@ const signup = (req, res) => {
                     .json({ pesan: "Error hashing passwords" });
             }
             try {
-                const user = await User.create({
+                await User.create({
                     ...req.body,
                     sandi: hash,
                 });
-                res.status(200).json(user);
+                res.status(200).json({
+                    pesan: "Kamu berhasil mendaftar, silahkan login!",
+                });
             } catch (error) {
                 if (error.errorResponse.code == 11000) {
                     return res

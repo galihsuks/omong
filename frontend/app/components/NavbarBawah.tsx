@@ -6,7 +6,7 @@ interface NavbarBawahProps {
 }
 const NavbarBawah: React.FC<NavbarBawahProps> = ({ path }) => {
     return (
-        <div className="px-5 py-1 navbar-bawah">
+        <div className="px-10 py-1 navbar-bawah">
             <Link
                 href={"/room"}
                 className={"item p-4" + (path == "/room" ? " active" : "")}

@@ -2,9 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { SyntheticEvent, useEffect, useState } from "react";
-import imgLogo from "@/app/img/logo.svg";
+import { SyntheticEvent, useEffect, useRef, useState } from "react";
+import imgLogo from "@/app/img/logo_white.svg";
 import Image from "next/image";
+import useUserStore from "@/store/userStore";
+import { HiOutlineMail } from "react-icons/hi";
+import { RiLockPasswordLine } from "react-icons/ri";
+import { FaRegEye, FaRegEyeSlash } from "react-icons/fa";
 
 export default function Home() {
     const router = useRouter();
@@ -13,33 +17,37 @@ export default function Home() {
         sandi: "",
     });
     const [eror, setEror] = useState<string>("");
+    const { email, setUser } = useUserStore();
+    const emailRef = useRef<HTMLInputElement>(null);
+    const sandiRef = useRef<HTMLInputElement>(null);
+    const [showPass, setShowPass] = useState<boolean>(false);
 
     useEffect(() => {
-        async function cekLogin() {
-            const cekIsLogin = await fetch("/api/islogin");
-            if (cekIsLogin.status === 200) return router.replace("/room");
+        console.log(email);
+        if (email) {
+            router.push("/room");
         }
-        cekLogin();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [email]);
 
-    function handleClick(e: SyntheticEvent) {
-        setEror("");
+    function handleLogin(e: SyntheticEvent) {
         e.preventDefault();
+        setEror("");
+        emailRef.current?.blur();
+        sandiRef.current?.blur();
         async function funFetchLogin() {
-            const response = await fetch("/api/login", {
+            const response = await fetch("/api/auth/login", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify(value),
             });
-
             const result = await response.json();
-
-            if (response.status === 401) {
-                return setEror(result.error);
+            if (response.status != 200) {
+                return setEror(result.pesan);
             }
+            setUser(result.id, result.email, result.nama, result.token);
             router.push("/room");
         }
         funFetchLogin();
@@ -55,82 +63,104 @@ export default function Home() {
     return (
         <>
             <div
-                style={{ height: "100svh" }}
-                className="flex gap-3 flex-col justify-center items-center px-6 py-12 lg:px-8"
+                style={{
+                    height: "100svh",
+                    minHeight: "500px",
+                    backgroundImage:
+                        "linear-gradient(to right top, #4f46e5, #6f46e6, #8946e6, #a046e6, #b446e5)",
+                }}
+                className="flex justify-center items-center px-10"
             >
-                <div>
-                    <Image src={imgLogo} alt="omong" width={200} />
-                </div>
-                {eror && (
-                    <div className="p-5 w-full sm:max-w-sm flex justify-center items-center border-2 border-indigo-500">
-                        {eror}
+                <div
+                    style={{ maxWidth: "450px" }}
+                    className="w-full flex flex-col justify-center items-center"
+                >
+                    <div className="mb-4">
+                        <p className="text-white font-bold mb-2">
+                            Login Member
+                        </p>
+                        <Image src={imgLogo} alt="omong" width={200} />
                     </div>
-                )}
-                <div className="w-full sm:max-w-sm">
-                    <form className="space-y-6" onSubmit={handleClick}>
-                        <div>
-                            <label
-                                htmlFor="email"
-                                className="block text-sm font-medium leading-6 text-gray-900"
-                            >
-                                Email
-                            </label>
-                            <div className="mt-2">
+                    {eror && (
+                        <div
+                            style={{
+                                fontSize: "12px",
+                                backgroundColor: "rgba(255, 0, 0, 0.1)",
+                            }}
+                            className="text-white font-semibold border border-red-500 px-4 py-2 rounded-md mt-2"
+                        >
+                            {eror}
+                        </div>
+                    )}
+                    <form onSubmit={handleLogin} className="w-full mt-5">
+                        <div className="formulir mb-5">
+                            <label className="text-indigo-100">Email</label>
+                            <div className="input flex items-center gap-3 px-3">
+                                <HiOutlineMail />
                                 <input
                                     value={value.email}
-                                    id="email"
-                                    name="email"
                                     type="email"
-                                    autoComplete="email"
-                                    className="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                                    name="email"
+                                    required
+                                    ref={emailRef}
                                     onChange={handleChange}
                                 />
                             </div>
                         </div>
-                        <div>
-                            <div className="flex items-center justify-between">
-                                <label
-                                    htmlFor="password"
-                                    className="block text-sm font-medium leading-6 text-gray-900"
-                                >
-                                    Sandi
-                                </label>
-                                <div className="text-sm">
-                                    <a
-                                        href="#"
-                                        className="font-semibold text-indigo-600 hover:text-indigo-500"
-                                    >
-                                        Lupa sandi?
-                                    </a>
-                                </div>
+                        <div className="formulir mb-10">
+                            <div className="flex justify-between w-full">
+                                <label className="text-indigo-100">Sandi</label>
+                                <p className="text-white font-bold hover:text-indigo-100">
+                                    Lupa Sandi?
+                                </p>
                             </div>
-                            <div className="mt-2">
+                            <div className="input flex items-center gap-3 px-3">
+                                <RiLockPasswordLine />
                                 <input
                                     value={value.sandi}
-                                    id="password"
+                                    type={showPass ? "text" : "password"}
                                     name="sandi"
-                                    type="password"
-                                    autoComplete="current-password"
                                     required
-                                    className="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                                    ref={sandiRef}
                                     onChange={handleChange}
                                 />
+                                {showPass ? (
+                                    <FaRegEyeSlash
+                                        onClick={() => setShowPass(false)}
+                                        style={{
+                                            opacity: 1,
+                                            cursor: "pointer",
+                                        }}
+                                    />
+                                ) : (
+                                    <FaRegEye
+                                        onClick={() => setShowPass(true)}
+                                        style={{
+                                            opacity: 0.5,
+                                            cursor: "pointer",
+                                        }}
+                                    />
+                                )}
                             </div>
                         </div>
                         <div>
                             <button
                                 type="submit"
-                                className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                                style={{
+                                    borderRadius: "3em",
+                                    backgroundColor: "rgba(255, 255, 255, 0.1)",
+                                }}
+                                className="flex w-full justify-center text-white px-3 py-1.5 font-semibold hover:bg-indigo-500"
                             >
                                 Sign in
                             </button>
                         </div>
                     </form>
-                    <p className="mt-10 text-center text-sm text-gray-500">
-                        Bukan member?
+                    <p className="mt-7 text-center text-indigo-100">
+                        Bukan member?{" "}
                         <Link
                             href="/signup"
-                            className="ms-1 font-semibold leading-6 text-indigo-600 hover:text-indigo-500"
+                            className="text-white font-bold hover:text-indigo-100"
                         >
                             Daftar disini
                         </Link>
