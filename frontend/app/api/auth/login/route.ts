@@ -18,12 +18,20 @@ export async function POST(req: Request) {
     if (fetchLogin.status != 200) {
         return NextResponse.json(responseLogin, { status: fetchLogin.status });
     }
-    return NextResponse.json(responseLogin, {
+    // return NextResponse.json(responseLogin, {
+    //     status: fetchLogin.status,
+    //     headers: {
+    //         // Remove Max-Age and Expires to make it a session cookie (expires when browser closes)
+    //         // But to make it "never expire", set a far future Expires date
+    //         "Set-Cookie": `token=${responseLogin.token}; HttpOnly; Path=/; Expires=Fri, 31 Dec 9999 23:59:59 GMT`,
+    //     },
+    // });
+    const res = NextResponse.json(responseLogin, {
         status: fetchLogin.status,
-        headers: {
-            // Remove Max-Age and Expires to make it a session cookie (expires when browser closes)
-            // But to make it "never expire", set a far future Expires date
-            "Set-Cookie": `token=${responseLogin.token}; HttpOnly; Path=/; Expires=Fri, 31 Dec 9999 23:59:59 GMT`,
-        },
     });
+    res.headers.set(
+        "Set-Cookie",
+        `token=${responseLogin.token}; HttpOnly; Path=/; Expires=Fri, 31 Dec 9999 23:59:59 GMT; Secure; SameSite=Strict`
+    );
+    return res;
 }
