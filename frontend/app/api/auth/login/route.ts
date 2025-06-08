@@ -26,15 +26,15 @@ export async function POST(req: Request) {
         expires: new Date("9999-12-31T23:59:59.000Z"),
     });
     // response.headers.set("Access-Control-Allow-Origin", "*");
-    response.headers.set(
-        "Access-Control-Allow-Origin",
-        "https://omong.galihsuks.com"
-    );
-    response.headers.set("Access-Control-Allow-Credentials", "true");
-    response.headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-    response.headers.set(
-        "Access-Control-Allow-Headers",
-        "Content-Type, Authorization"
-    );
+    // response.headers.set(
+    //     "Access-Control-Allow-Origin",
+    //     "https://omong.galihsuks.com"
+    // );
+    // response.headers.set("Access-Control-Allow-Credentials", "true");
+    // response.headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    // response.headers.set(
+    //     "Access-Control-Allow-Headers",
+    //     "Content-Type, Authorization"
+    // );
     return response;
 }

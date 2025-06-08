@@ -14,15 +14,15 @@ app.use(cors());
 app.use(express.json());
 app.use(useragent.express());
 
-app.get("/api", (req, res) => {
+app.get("/backend", (req, res) => {
     res.send("API Ngomongo v1");
 });
 
 // routes
-app.use("/api/auth", authRoute);
-app.use("/api/room", roomRoute);
-app.use("/api/chat", chatRoute);
-app.use("/api/user", userRoute);
+app.use("/backend/auth", authRoute);
+app.use("/backend/room", roomRoute);
+app.use("/backend/chat", chatRoute);
+app.use("/backend/user", userRoute);
 
 mongoose
     .connect(process.env.MONGODB_URI)
