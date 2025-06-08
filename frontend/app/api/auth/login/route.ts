@@ -26,12 +26,18 @@ export async function POST(req: Request) {
     //         "Set-Cookie": `token=${responseLogin.token}; HttpOnly; Path=/; Expires=Fri, 31 Dec 9999 23:59:59 GMT`,
     //     },
     // });
-    const res = NextResponse.json(responseLogin, {
-        status: fetchLogin.status,
+    const response = NextResponse.json(responseLogin, { status: 200 });
+    response.cookies.set("token", responseLogin.token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 60 * 60,
     });
-    res.headers.set(
-        "Set-Cookie",
-        `token=${responseLogin.token}; HttpOnly; Path=/; Expires=Fri, 31 Dec 9999 23:59:59 GMT; Secure; SameSite=Strict`
-    );
-    return res;
+    return response;
+    // return NextResponse.json(responseLogin, {
+    //     status: 200,
+    //     headers: {
+    //         "Set-Cookie": `token=${responseLogin.token}; HttpOnly; Path=/; Max-Age=86400`,
+    //     },
+    // });
 }
