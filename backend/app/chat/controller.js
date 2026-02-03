@@ -7,7 +7,7 @@ const addChat = async (req, res) => {
     try {
         const room = await Room.findById(req.params.id).populate(
             "anggota",
-            "nama email"
+            "nama email",
         );
 
         if (!room) {
@@ -46,6 +46,8 @@ const addChat = async (req, res) => {
             "seenUsers.user": { $ne: req.user.id },
         });
 
+        return res.status(200).json(chatAdded);
+
         const ws = new WebSocket(`${process.env.URL_WS}`);
         ws.onopen = () => {
             ws.send(
@@ -61,7 +63,7 @@ const addChat = async (req, res) => {
                 (err) => {
                     res.status(200).json(chatAdded);
                     ws.close();
-                }
+                },
             );
         };
         ws.onerror = (err) => {
@@ -84,7 +86,7 @@ const delChat = async (req, res) => {
         }
         const room = await Room.findById(chat.idRoom).populate(
             "anggota",
-            "nama email"
+            "nama email",
         );
         if (!room) {
             return res.status(404).json({ pesan: "Id room tidak ditemukan" });
@@ -109,6 +111,8 @@ const delChat = async (req, res) => {
             idRoom: chat.idRoom,
             "seenUsers.user": { $ne: req.user.id },
         });
+        return res.status(200).json(chat);
+
         const ws = new WebSocket(`${process.env.URL_WS}`);
         ws.onopen = () => {
             ws.send(
@@ -125,7 +129,7 @@ const delChat = async (req, res) => {
                 (err) => {
                     res.status(200).json(chat);
                     ws.close();
-                }
+                },
             );
         };
         ws.onerror = (err) => {
@@ -180,7 +184,7 @@ const seen = async (req, res) => {
                         timestamp,
                     },
                 },
-            }
+            },
         );
 
         if (chatsUpdated.length === 0) {
@@ -198,8 +202,24 @@ const seen = async (req, res) => {
             });
         }
 
+        return res.status(200).json({
+            room_id: req.params.id,
+            //chats yg baru saja dilihat
+            chats: chatsUpdated.map((chat) => {
+                return chat._id;
+            }),
+            addToSeenUsers: {
+                user: {
+                    _id: req.user.id,
+                    nama: req.user.nama,
+                    email: req.user.email,
+                },
+                timestamp,
+            },
+        });
+
         const ws = new WebSocket(
-            `${process.env.URL_WS}/?room=${req.params.id}`
+            `${process.env.URL_WS}/?room=${req.params.id}`,
         );
         ws.onopen = () => {
             ws.send(
@@ -239,7 +259,7 @@ const seen = async (req, res) => {
                         },
                     });
                     ws.close();
-                }
+                },
             );
         };
         ws.onerror = (err) => {

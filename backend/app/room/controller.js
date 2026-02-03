@@ -85,7 +85,7 @@ const getRoom = async (req, res) => {
                                   .online.status
                             : false,
                 };
-            })
+            }),
         );
     } catch (error) {
         res.status(500).json({ pesan: error.message });
@@ -132,8 +132,10 @@ const addRoom = async (req, res) => {
         });
         let roomNew = await Room.findById(room._id).populate(
             "anggota",
-            "nama email online"
+            "nama email online",
         );
+
+        return res.status(200).json(room);
 
         const ws = new WebSocket(`${process.env.URL_WS}`);
         ws.onopen = () => {
@@ -149,13 +151,13 @@ const addRoom = async (req, res) => {
                         nama:
                             roomNew.tipe == "private"
                                 ? roomNew.anggota.filter(
-                                      (a) => a._id != req.user.id
+                                      (a) => a._id != req.user.id,
                                   )[0].nama
                                 : roomNew.nama,
                         online:
                             roomNew.tipe == "private"
                                 ? roomNew.anggota.filter(
-                                      (a) => a._id != req.user.id
+                                      (a) => a._id != req.user.id,
                                   )[0].online.status
                                 : false,
                     },
@@ -163,7 +165,7 @@ const addRoom = async (req, res) => {
                 (err) => {
                     res.status(200).json(room);
                     ws.close();
-                }
+                },
             );
         };
         ws.onerror = (err) => {
@@ -199,7 +201,7 @@ const exitRoom = async (req, res) => {
     try {
         let room = await Room.findById(req.params.id).populate(
             "anggota",
-            "nama email"
+            "nama email",
         );
         if (!room) {
             return res.status(404).json({ pesan: "Id room tidak ditemukan" });
@@ -219,6 +221,10 @@ const exitRoom = async (req, res) => {
             await Room.findByIdAndDelete(req.params.id);
             await Chat.deleteMany({ idRoom: req.params.id });
 
+            return res.status(200).json({
+                pesan: `Anda telah keluar dari room ${room.nama}`,
+            });
+
             const ws = new WebSocket(`${process.env.URL_WS}`);
             ws.onopen = () => {
                 ws.send(
@@ -236,7 +242,7 @@ const exitRoom = async (req, res) => {
                             pesan: `Anda telah keluar dari room ${room.nama}`,
                         });
                         ws.close();
-                    }
+                    },
                 );
             };
             ws.onerror = (err) => {
