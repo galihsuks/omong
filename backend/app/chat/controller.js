@@ -1,7 +1,6 @@
 require("dotenv").config();
 const Chat = require("./model.js");
 const Room = require("../room/model.js");
-const WebSocket = require("ws");
 
 const addChat = async (req, res) => {
     try {

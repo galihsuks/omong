@@ -1,7 +1,6 @@
 const Room = require("./model.js");
 const User = require("../user/model.js");
 const Chat = require("../chat/model.js");
-const WebSocket = require("ws");
 
 const getRoom = async (req, res) => {
     try {
