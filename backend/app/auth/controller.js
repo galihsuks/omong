@@ -22,6 +22,11 @@ const signup = (req, res) => {
                     pesan: "Kamu berhasil mendaftar, silahkan login!",
                 });
             } catch (error) {
+                if (error.name === "ValidationError") {
+                    return res.status(400).json({
+                        pesan: "Input tidak lengkap!",
+                    });
+                }
                 if (error.errorResponse.code == 11000) {
                     return res
                         .status(401)
@@ -52,7 +57,7 @@ const login = async (req, res) => {
             if (result) {
                 const accessToken = jwt.sign(
                     { email: user.email, nama: user.nama, id: user._id },
-                    process.env.ACCESS_TOKEN_SECRET
+                    process.env.ACCESS_TOKEN_SECRET,
                 );
                 const ua = req.useragent;
                 const token = await Token.create({
@@ -99,7 +104,7 @@ const logout = async (req, res) => {
                     "online.status": false,
                     "online.last": Date.now(),
                 },
-            }
+            },
         );
         await Token.findByIdAndDelete(token._id);
         res.status(200).json({ pesan: "Berhasil logout" });

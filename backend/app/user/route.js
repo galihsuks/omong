@@ -13,6 +13,6 @@ router.put("/", authenticateToken, updateUser);
 router.delete("/", authenticateToken, deleteUser);
 router.get("/", authenticateToken, getUserCur);
 router.post("/getby/:filter", authenticateToken, getBy);
-router.get("/online/:status", authenticateToken, online);
+router.post("/online", authenticateToken, online);
 
 module.exports = router;

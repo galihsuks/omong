@@ -36,7 +36,6 @@ const getBy = async (req, res) => {
         if (req.user && req.user[filter]) {
             query[filter]["$ne"] = req.user[filter];
         }
-        console.log(query);
         const users = await User.find(query).limit(Number(limit));
         res.status(200).json(users);
     } catch (error) {
@@ -94,7 +93,7 @@ const deleteUser = async (req, res) => {
         });
         await Room.updateMany(
             { $in: { anggota: user._id } },
-            { $pull: { anggota: user._id } }
+            { $pull: { anggota: user._id } },
         );
         res.status(200).json({ pesan: "User berhasil dihapus" });
     } catch (error) {
@@ -104,11 +103,11 @@ const deleteUser = async (req, res) => {
 
 const online = async (req, res) => {
     try {
-        const { status } = req.params; //boolean 1 atau 0;
+        const { status } = req.body; //status : boolean;
         const user = await User.findByIdAndUpdate(
             req.user.id,
             { online: { status, last: Date.now() } },
-            { new: true }
+            { new: true },
         );
         res.status(200).json(user);
     } catch (error) {
