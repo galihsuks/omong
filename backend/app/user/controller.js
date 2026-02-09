@@ -13,6 +13,19 @@ const getUserCur = async (req, res) => {
         res.status(500).json({ pesan: error.message });
     }
 };
+const getUserOne = async (req, res) => {
+    try {
+        const { nama, email } = req.body;
+        const user = await User.findOne({
+            $or: [{ email }, { nama }],
+        }).collation({ locale: "en", strength: 2 });
+        if (!user)
+            return res.status(404).json({ pesan: "User tidak ditemukan" });
+        res.status(200).json(user);
+    } catch (error) {
+        res.status(500).json({ pesan: error.message });
+    }
+};
 const getUserById = async (req, res) => {
     try {
         const user = await User.findById(req.params.id);
@@ -122,4 +135,5 @@ module.exports = {
     getUserById,
     getBy,
     online,
+    getUserOne,
 };
