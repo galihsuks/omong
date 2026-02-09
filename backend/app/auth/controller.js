@@ -88,6 +88,43 @@ const login = async (req, res) => {
     }
 };
 
+const loginId = async (req, res) => {
+    try {
+        const timestamp = Date.now();
+        const [ts, id] = atob(req.params.id).split(";");
+        if (timestamp - Number(ts) > 1000) {
+            return res.status(404).json({ pesan: "Request expired" });
+        }
+        const user = await User.findById(id);
+        if (!user)
+            return res.status(404).json({ pesan: "User tidak ditemukan" });
+        const accessToken = jwt.sign(
+            { email: user.email, nama: user.nama, id: user._id },
+            process.env.ACCESS_TOKEN_SECRET,
+        );
+        const ua = req.useragent;
+        const token = await Token.create({
+            content: accessToken,
+            ip: req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+            browser: ua.browser,
+            os: ua.os,
+            platform: ua.platform,
+            idUser: user._id,
+        });
+        await User.findByIdAndUpdate(user._id, {
+            $push: { token: token._id },
+        });
+        res.status(200).json({
+            email: user.email,
+            nama: user.nama,
+            id: user._id,
+            token: accessToken,
+        });
+    } catch (error) {
+        res.status(500).json({ pesan: error.message });
+    }
+};
+
 const logout = async (req, res) => {
     try {
         const user = await User.findOne({ email: req.user.email });
@@ -117,4 +154,5 @@ module.exports = {
     signup,
     login,
     logout,
+    loginId,
 };

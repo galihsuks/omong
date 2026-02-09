@@ -117,7 +117,7 @@ const addRoom = async (req, res) => {
             });
             if (checkRoom.length > 0) {
                 return res
-                    .status(400)
+                    .status(201)
                     .json({ pesan: "Anda sudah memiliki room private" });
             }
         }
