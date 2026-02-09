@@ -20,7 +20,7 @@ const getUserOne = async (req, res) => {
             {
                 $or: [{ email }, { nama }],
             },
-            "-sandi -token -_id -__v -ip_websocket",
+            "-sandi -token -__v -ip_websocket",
         ).collation({ locale: "en", strength: 2 });
         if (!user)
             return res.status(404).json({ pesan: "User tidak ditemukan" });
