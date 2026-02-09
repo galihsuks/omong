@@ -16,9 +16,12 @@ const getUserCur = async (req, res) => {
 const getUserOne = async (req, res) => {
     try {
         const { nama, email } = req.body;
-        const user = await User.findOne({
-            $or: [{ email }, { nama }],
-        }).collation({ locale: "en", strength: 2 });
+        const user = await User.findOne(
+            {
+                $or: [{ email }, { nama }],
+            },
+            "-sandi -token -_id -__v -ip_websocket",
+        ).collation({ locale: "en", strength: 2 });
         if (!user)
             return res.status(404).json({ pesan: "User tidak ditemukan" });
         res.status(200).json(user);
