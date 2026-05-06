@@ -1,10 +1,15 @@
 import { useMutation } from "@tanstack/react-query";
-import { addChatApi, seenRoomApi } from "@/api/chat.api";
+import { addChatApi, deleteChatApi, seenRoomApi } from "@/api/chat.api";
 
 export function useAddChatMutation(roomId: string) {
   return useMutation({
-    mutationFn: (pesan: string) => addChatApi(roomId, { pesan, idChatReply: null }),
+    mutationFn: (payload: { pesan: string; idChatReply: string | null }) =>
+      addChatApi(roomId, payload),
   });
+}
+
+export function useDeleteChatMutation() {
+  return useMutation({ mutationFn: deleteChatApi });
 }
 
 export function useSeenRoomMutation(roomId: string) {

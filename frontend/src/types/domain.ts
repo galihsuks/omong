@@ -1,3 +1,4 @@
+
 export type UserAuth = {
   id: string;
   nama: string;
@@ -5,14 +6,27 @@ export type UserAuth = {
   token: string;
 };
 
+export type UserLite = {
+  _id: string;
+  nama: string;
+  email: string;
+  online?: { status: boolean; last: string | null };
+};
+
+export type ChatReply = {
+  _id: string;
+  pesan: string;
+  idPengirim: { nama: string };
+};
+
 export type Chat = {
   _id: string;
   pesan: string;
   createdAt: string;
   idRoom: string;
-  idPengirim: { _id: string; nama: string; email: string };
-  idChatReply: null | { _id: string; pesan: string; idPengirim: { nama: string } };
-  seenUsers: Array<{ user: { _id: string; nama: string; email: string }; timestamp: string }>;
+  idPengirim: UserLite;
+  idChatReply: null | ChatReply;
+  seenUsers: Array<{ user: UserLite; timestamp: string }>;
 };
 
 export type Room = {
@@ -21,7 +35,14 @@ export type Room = {
   tipe: "group" | "private";
   chatsUnread: number;
   online: boolean;
-  anggota: Array<{ _id: string; nama: string; email: string }>;
+  anggota: UserLite[];
   lastchat: Chat | null;
   chats?: Chat[];
 };
+
+export type WsPayload =
+  | { event: "chat"; action: "add"; roomId: string; chat: Chat }
+  | { event: "chat"; action: "delete"; roomId: string; chatId: string }
+  | { event: "chat"; action: "seen"; roomId: string; chatIds: string[]; seenUser: { user: UserLite; timestamp: number } }
+  | { event: "typing"; roomId: string; userName: string; status: boolean }
+  | { event: "room"; action: "add" | "update" | "delete"; room: Room };

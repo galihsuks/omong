@@ -21,9 +21,9 @@ export function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
+    <main className="min-h-screen bg-gradient-to-tr from-indigo-950 via-purple-950 to-fuchsia-900 text-slate-100">
       <section className="mx-auto flex min-h-screen w-full max-w-md items-center px-6">
-        <div className="w-full rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl">
+        <div className="w-full p-6 flex flex-col items-center">
           <h1 className="mb-6 text-2xl font-bold">Login Omong</h1>
           <form onSubmit={onSubmit} className="space-y-3">
             <input
@@ -50,7 +50,10 @@ export function LoginPage() {
             {loginError && <p className="text-sm text-rose-400">{(loginError as Error).message}</p>}
           </form>
           <p className="mt-5 text-sm text-slate-300">
-            Belum punya akun? <Link to="/signup" className="text-cyan-300">Daftar</Link>
+            Belum punya akun?{" "}
+            <Link to="/signup" className="text-cyan-300">
+              Daftar
+            </Link>
           </p>
         </div>
       </section>
