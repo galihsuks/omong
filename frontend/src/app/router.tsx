@@ -4,6 +4,7 @@ import { LoginPage } from "@/pages/auth/LoginPage";
 import { SignupPage } from "@/pages/auth/SignupPage";
 import { RoomsPage } from "@/pages/rooms/RoomsPage";
 import { RoomDetailPage } from "@/pages/chat/RoomDetailPage";
+import { ProfilePage } from "@/pages/profile/ProfilePage";
 import { useAuthStore } from "@/store/auth.store";
 
 function AuthGuard({ children }: { children: ReactElement }) {
@@ -38,6 +39,14 @@ export const router = createBrowserRouter([
     element: (
       <AuthGuard>
         <RoomDetailPage />
+      </AuthGuard>
+    ),
+  },
+  {
+    path: "/profile",
+    element: (
+      <AuthGuard>
+        <ProfilePage />
       </AuthGuard>
     ),
   },

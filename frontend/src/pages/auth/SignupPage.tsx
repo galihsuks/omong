@@ -3,25 +3,38 @@ import { Lock, Mail, UserRound } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useSignupMutation } from "@/hooks/useAuthMutations";
 import { InputField } from "@/components/forms/InputField";
+import { Button } from "@/components/forms/Button";
+import { showToast } from "@/store/toast.store";
 
 export function SignupPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ nama: "", email: "", sandi: "" });
+  const [err, setErr] = useState("");
 
-  const { mutate: signup, isPending: isSignupPending, error: signupError } = useSignupMutation();
+  const { mutate: signup, isPending: isSignupPending } = useSignupMutation();
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
     signup(form, {
-      onSuccess: () => navigate("/login"),
+      onSuccess: (e) => {
+        showToast("success", e.pesan);
+        navigate("/login");
+      },
+      onError: (e) => {
+        setErr(e.message);
+      },
     });
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
+    <main className="min-h-screen bg-gradient-to-tr from-indigo-900 to-fuchsia-800 text-slate-100">
       <section className="mx-auto flex min-h-screen w-full max-w-md items-center px-6">
-        <div className="w-full rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl">
-          <h1 className="mb-6 text-2xl font-bold">Daftar Omong</h1>
+        <div className="w-full p-6">
+          <div className="mx-auto mb-4" style={{ maxWidth: "200px" }}>
+            <p className="mb-2 font-bold">Registration</p>
+            <img src="/img/logo_white.svg" alt="omong logo" />
+          </div>
+          {err && <p className="bg-rose-900 text-sm text-rose-100 mb-4 rounded px-3 py-1">{err}</p>}
           <form onSubmit={onSubmit} className="space-y-4">
             <InputField
               label="Name"
@@ -47,18 +60,15 @@ export function SignupPage() {
               onChange={(e) => setForm((prev) => ({ ...prev, sandi: e.target.value }))}
             />
 
-            <button
-              className="w-full rounded-lg bg-cyan-400 px-3 py-2 font-semibold text-slate-900 hover:bg-cyan-300 disabled:opacity-60"
-              type="submit"
-              disabled={isSignupPending}
-            >
-              Daftar
-            </button>
-
-            {signupError && <p className="text-sm text-rose-400">{(signupError as Error).message}</p>}
+            <Button className="w-full mt-3" type="submit" disabled={isSignupPending}>
+              {isSignupPending ? "Proccessing..." : "Register"}
+            </Button>
           </form>
-          <p className="mt-5 text-sm text-slate-300">
-            Sudah punya akun? <Link to="/login" className="text-cyan-300">Login</Link>
+          <p className="mt-5 text-sm text-slate-300 text-center">
+            Already have an account?{" "}
+            <Link to="/login" className="font-semibold text-white">
+              Login
+            </Link>
           </p>
         </div>
       </section>

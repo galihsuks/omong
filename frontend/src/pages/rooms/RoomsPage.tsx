@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, UserPlus, LogOut, Users, Search } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Plus, Pencil, UserPlus, LogOut, Users, Search, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth.store";
 import { useWsStore } from "@/store/ws.store";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { RoomListItem } from "@/components/rooms/RoomListItem";
 import { BottomNav } from "@/components/common/BottomNav";
-import { TopBar } from "@/components/common/TopBar";
 import { InputField } from "@/components/forms/InputField";
 import { SearchSelect, type SelectOption } from "@/components/forms/SearchSelect";
 import {
@@ -17,14 +17,23 @@ import {
   useUserSearchQuery,
 } from "@/hooks/useRooms";
 import type { Room, WsPayload } from "@/types/domain";
+import { showToast } from "@/store/toast.store";
 
 export function RoomsPage() {
   const user = useAuthStore((state) => state.user);
-  const logout = useAuthStore((state) => state.logout);
   const queryClient = useQueryClient();
   const { connect, subscribe, unsubscribe, sendOnline } = useWsStore();
 
-  const { data: roomsData, isPending: isRoomsPending, error: roomsError } = useRoomsQuery();
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const debouncedKeyword = useDebouncedValue(searchKeyword, 400);
+
+  const {
+    data: roomsData,
+    isPending: isRoomsPending,
+    error: roomsError,
+  } = useRoomsQuery(debouncedKeyword);
   const { mutate: createRoom, isPending: isCreateRoomPending } = useCreateRoomMutation();
   const { mutate: updateRoomName } = useUpdateRoomMutation();
   const { mutate: joinRoom } = useJoinRoomMutation();
@@ -44,8 +53,28 @@ export function RoomsPage() {
   });
   const [editName, setEditName] = useState("");
 
-  const { data: searchUsersData, isPending: isSearchUsersPending } = useUserSearchQuery("email", createForm.keyword);
+  const { data: searchUsersData, isPending: isSearchUsersPending } = useUserSearchQuery(
+    "email",
+    createForm.keyword,
+  );
 
+  useEffect(() => {
+    if (!isSearchOpen) return;
+    const id = window.setTimeout(() => searchInputRef.current?.focus(), 0);
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsSearchOpen(false);
+        setSearchKeyword("");
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.clearTimeout(id);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isSearchOpen]);
   const memberOptions = useMemo<SelectOption[]>(
     () =>
       (searchUsersData ?? []).map((userData) => ({
@@ -84,7 +113,7 @@ export function RoomsPage() {
         }
 
         if (data.event === "chat" && data.roomId === room._id) {
-          queryClient.setQueryData(["rooms"], (old: Room[] | undefined) => {
+          queryClient.setQueryData(["rooms", debouncedKeyword ?? ""], (old: Room[] | undefined) => {
             if (!old) return old;
             return old.map((r) => {
               if (r._id !== room._id) return r;
@@ -110,22 +139,6 @@ export function RoomsPage() {
           });
           return;
         }
-
-        if (data.event === "room") {
-          if (data.action === "add") {
-            queryClient.setQueryData(["rooms"], (old: Room[] | undefined) =>
-              old ? [data.room, ...old.filter((r) => r._id !== data.room._id)] : [data.room],
-            );
-          } else if (data.action === "update") {
-            queryClient.setQueryData(["rooms"], (old: Room[] | undefined) =>
-              old?.map((r) => (r._id === data.room._id ? { ...r, ...data.room } : r)),
-            );
-          } else if (data.action === "delete") {
-            queryClient.setQueryData(["rooms"], (old: Room[] | undefined) =>
-              old?.filter((r) => r._id !== data.room._id),
-            );
-          }
-        }
       };
 
       handlers.push({ roomId: room._id, handler });
@@ -135,7 +148,7 @@ export function RoomsPage() {
     return () => {
       handlers.forEach(({ roomId, handler }) => unsubscribe(roomId, handler));
     };
-  }, [roomsData, queryClient, subscribe, unsubscribe, user?.id]);
+  }, [roomsData, queryClient, subscribe, unsubscribe, user?.id, debouncedKeyword]);
 
   const mergedRooms = useMemo(
     () =>
@@ -157,8 +170,16 @@ export function RoomsPage() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["rooms"] });
         setShowCreate(false);
-        setCreateForm({ tipe: "group", nama: "", keyword: "", selectedEmails: [], selectedEmailValue: "" });
+        setCreateForm({
+          tipe: "group",
+          nama: "",
+          keyword: "",
+          selectedEmails: [],
+          selectedEmailValue: "",
+        });
+        showToast("success", "Room created successfully.");
       },
+      onError: (error) => showToast("error", (error as Error).message),
     });
   };
 
@@ -170,34 +191,59 @@ export function RoomsPage() {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: ["rooms"] });
           setShowEdit(false);
+          showToast("success", "Room updated successfully.");
         },
+        onError: (error) => showToast("error", (error as Error).message),
       },
     );
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-tr from-indigo-950 via-purple-950 to-fuchsia-900 px-4 py-5 text-white">
-      <section className="mx-auto flex min-h-[92vh] w-full max-w-3xl flex-col rounded-2xl border border-white/10 bg-black/20 backdrop-blur-xl">
-        <TopBar
-          title="Omong Rooms"
-          subtitle={user?.nama}
-          right={
-            <div className="flex gap-2">
+    <main className="h-screen bg-gradient-to-tr from-indigo-950 via-purple-950 to-fuchsia-900 px-4 py-5 text-white">
+      <section className="mx-auto flex h-full w-full max-w-3xl flex-col">
+        <header className="border-b border-white/10 px-4 py-3">
+          {isSearchOpen ? (
+            <div className="flex items-center gap-2">
+              <InputField
+                ref={searchInputRef}
+                leftIcon={<Search size={16} />}
+                value={searchKeyword}
+                onChange={(e) => setSearchKeyword(e.target.value)}
+                placeholder="Search rooms..."
+              />
               <button
                 className="rounded-lg bg-white/10 p-2 text-slate-100 hover:bg-white/20"
-                onClick={() => setShowCreate(true)}
+                onClick={() => {
+                  setIsSearchOpen(false);
+                  setSearchKeyword("");
+                }}
               >
-                <Plus size={16} />
-              </button>
-              <button
-                className="rounded-lg bg-white/10 p-2 text-slate-100 hover:bg-white/20"
-                onClick={logout}
-              >
-                <LogOut size={16} />
+                <X size={16} />
               </button>
             </div>
-          }
-        />
+          ) : (
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-base font-semibold text-white">Omong Rooms</h1>
+                <p className="text-xs text-slate-300">{user?.nama}</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  className="rounded-lg bg-white/10 p-2 text-slate-100 hover:bg-white/20"
+                  onClick={() => setShowCreate(true)}
+                >
+                  <Plus size={16} />
+                </button>
+                <button
+                  className="rounded-lg bg-white/10 p-2 text-slate-100 hover:bg-white/20"
+                  onClick={() => setIsSearchOpen(true)}
+                >
+                  <Search size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+        </header>
 
         <div className="flex-1 overflow-y-auto p-3">
           {isRoomsPending && <p className="text-sm text-slate-200">Loading rooms...</p>}
@@ -223,7 +269,11 @@ export function RoomsPage() {
                   <button
                     onClick={() =>
                       joinRoom(room._id, {
-                        onSuccess: () => queryClient.invalidateQueries({ queryKey: ["rooms"] }),
+                        onSuccess: () => {
+                          queryClient.invalidateQueries({ queryKey: ["rooms"] });
+                          showToast("success", "Joined room successfully.");
+                        },
+                        onError: (error) => showToast("error", (error as Error).message),
                       })
                     }
                     className="inline-flex items-center gap-1 hover:text-white"
@@ -233,7 +283,11 @@ export function RoomsPage() {
                   <button
                     onClick={() =>
                       exitRoom(room._id, {
-                        onSuccess: () => queryClient.invalidateQueries({ queryKey: ["rooms"] }),
+                        onSuccess: () => {
+                          queryClient.invalidateQueries({ queryKey: ["rooms"] });
+                          showToast("warning", "You left the room.");
+                        },
+                        onError: (error) => showToast("error", (error as Error).message),
                       })
                     }
                     className="inline-flex items-center gap-1 text-rose-300 hover:text-rose-200"
@@ -323,7 +377,10 @@ export function RoomsPage() {
               </div>
 
               <div className="flex justify-end gap-2">
-                <button className="rounded bg-white/10 px-3 py-1 text-xs" onClick={() => setShowCreate(false)}>
+                <button
+                  className="rounded bg-white/10 px-3 py-1 text-xs"
+                  onClick={() => setShowCreate(false)}
+                >
                   Cancel
                 </button>
                 <button
@@ -350,7 +407,10 @@ export function RoomsPage() {
               placeholder="Room name"
             />
             <div className="mt-3 flex justify-end gap-2">
-              <button className="rounded bg-white/10 px-3 py-1 text-xs" onClick={() => setShowEdit(false)}>
+              <button
+                className="rounded bg-white/10 px-3 py-1 text-xs"
+                onClick={() => setShowEdit(false)}
+              >
                 Cancel
               </button>
               <button

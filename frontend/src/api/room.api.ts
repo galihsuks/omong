@@ -1,8 +1,11 @@
 import { apiClient } from "@/api/client";
 import type { Room, UserLite } from "@/types/domain";
 
-export function getRoomsApi() {
-  return apiClient<Room[]>("/room");
+export function getRoomsApi(keywords?: string) {
+  const params = new URLSearchParams();
+  if (keywords?.trim()) params.set("keywords", keywords.trim());
+  const qs = params.toString();
+  return apiClient<Room[]>(`/room${qs ? `?${qs}` : ""}`);
 }
 
 export function getRoomByIdApi(roomId: string) {

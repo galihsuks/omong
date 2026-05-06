@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, Send, Users } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -29,6 +29,7 @@ export function RoomDetailPage() {
   const [typingNames, setTypingNames] = useState<string[]>([]);
   const [showMembers, setShowMembers] = useState(false);
   const typingTimeoutRef = useRef<number | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
   const {
     data: roomDetailData,
@@ -146,6 +147,49 @@ export function RoomDetailPage() {
 
   const chats = useMemo(() => roomDetailData?.chats ?? [], [roomDetailData?.chats]);
 
+  const roomDisplayName = useMemo(() => {
+    if (!roomDetailData) return "Room";
+    if (roomDetailData.tipe !== "private") return roomDetailData.nama ?? "Room";
+
+    const friend = roomDetailData.anggota.find((anggota) => anggota._id !== user?.id);
+    return friend?.nama ?? roomDetailData.nama ?? "Private Room";
+  }, [roomDetailData, user?.id]);
+
+  const roomSubtitle = useMemo(() => {
+    if (!roomDetailData) return "";
+
+    if (roomDetailData.tipe !== "private") {
+      return `${roomDetailData.anggota.length} members`;
+    }
+
+    const friend = roomDetailData.anggota.find((anggota) => anggota._id !== user?.id);
+    if (!friend) return "Private chat";
+
+    if (friend.online?.status) return "Online";
+
+    if (friend.online?.last) {
+      const last = new Date(friend.online.last);
+      const formatted = Number.isNaN(last.getTime())
+        ? "recently"
+        : last.toLocaleString("id-ID", {
+            day: "2-digit",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+      return `Last seen ${formatted}`;
+    }
+
+    return "Offline";
+  }, [roomDetailData, user?.id]);
+
+  useLayoutEffect(() => {
+    const container = chatContainerRef.current;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+  }, [roomId, chats.length]);
+
+
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     const text = message.trim();
@@ -200,11 +244,11 @@ export function RoomDetailPage() {
         : "";
 
   return (
-    <main className="min-h-screen bg-gradient-to-tr from-indigo-950 via-purple-950 to-fuchsia-900 px-4 py-5 text-white">
-      <section className="mx-auto flex min-h-[92vh] w-full max-w-3xl flex-col rounded-2xl border border-white/10 bg-black/20 backdrop-blur-xl">
+    <main className="h-screen bg-gradient-to-tr from-indigo-950 via-purple-950 to-fuchsia-900 px-4 py-5 text-white">
+      <section className="mx-auto flex h-full w-ful max-w-3xl flex-col">
         <TopBar
-          title={roomDetailData?.nama ?? "Room"}
-          subtitle={roomDetailData?.tipe ?? ""}
+          title={roomDisplayName}
+          subtitle={roomSubtitle}
           right={
             <div className="flex gap-2">
               <Link to="/rooms" className="rounded-lg bg-white/10 p-2 hover:bg-white/20">
@@ -220,7 +264,7 @@ export function RoomDetailPage() {
           }
         />
 
-        <div className="flex-1 space-y-2 overflow-y-auto px-3 py-3">
+        <div ref={chatContainerRef} className="flex-1 space-y-2 overflow-y-auto px-3 py-3">
           {isRoomPending && <p className="text-sm text-slate-200">Loading...</p>}
           {roomError && <p className="text-sm text-rose-300">{(roomError as Error).message}</p>}
 
@@ -269,8 +313,6 @@ export function RoomDetailPage() {
             </button>
           </div>
         </form>
-
-        <BottomNav />
       </section>
 
       {roomDetailData && (
@@ -283,3 +325,6 @@ export function RoomDetailPage() {
     </main>
   );
 }
+
+
+

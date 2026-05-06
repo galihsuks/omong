@@ -35,6 +35,8 @@ export async function getRoom(req: AuthRequest, res: Response) {
       return res.status(200).json(room);
     }
 
+    const keywords = String(req.query.keywords ?? "").trim().toLowerCase();
+
     const rooms = await Room.find({ anggota: { $all: [req.user.id] } })
       .sort({ updatedAt: -1 })
       .populate("anggota", "nama email online");
@@ -61,17 +63,26 @@ export async function getRoom(req: AuthRequest, res: Response) {
             ? (r.anggota as any[]).find((a) => String(a._id) !== req.user?.id)
             : null;
 
-        return {
+        const nama = r.tipe === "private" ? teman?.nama : r.nama;
+        const roomDto = {
           ...r.toObject(),
           lastchat,
           chatsUnread,
-          nama: r.tipe === "private" ? teman?.nama : r.nama,
+          nama,
           online: r.tipe === "private" ? teman?.online?.status : false,
         };
+
+        return roomDto;
       }),
     );
 
-    return res.status(200).json(mapped);
+    const filtered = keywords
+      ? mapped.filter((room) =>
+          String(room.nama ?? "").toLowerCase().includes(keywords),
+        )
+      : mapped;
+
+    return res.status(200).json(filtered);
   } catch (error: any) {
     return res.status(500).json({ pesan: error.message });
   }

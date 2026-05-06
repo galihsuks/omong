@@ -1,12 +1,5 @@
 import { Check, ChevronDown, Search } from "lucide-react";
-import {
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 
 export type SelectOption = {
   label: string;
@@ -66,7 +59,11 @@ export function SearchSelect({
 
   return (
     <div ref={wrapperRef} className="relative w-full">
-      {label && <label htmlFor={selectId} className="mb-1 block text-xs text-slate-200">{label}</label>}
+      {label && (
+        <label htmlFor={selectId} className="mb-1 block text-xs text-slate-200">
+          {label}
+        </label>
+      )}
 
       <button
         id={selectId}
@@ -117,7 +114,9 @@ export function SearchSelect({
                   >
                     <div className="min-w-0">
                       <p className="truncate">{option.label}</p>
-                      {option.meta && <p className="truncate text-[11px] text-slate-300">{option.meta}</p>}
+                      {option.meta && (
+                        <p className="truncate text-[11px] text-slate-300">{option.meta}</p>
+                      )}
                     </div>
                     {selected && <Check size={14} className="shrink-0 text-cyan-300" />}
                   </button>

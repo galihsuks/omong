@@ -9,8 +9,11 @@ import {
   updateRoomApi,
 } from "@/api/room.api";
 
-export function useRoomsQuery() {
-  return useQuery({ queryKey: ["rooms"], queryFn: getRoomsApi });
+export function useRoomsQuery(keywords?: string) {
+  return useQuery({
+    queryKey: ["rooms", keywords ?? ""],
+    queryFn: () => getRoomsApi(keywords),
+  });
 }
 
 export function useRoomDetailQuery(roomId?: string) {
@@ -27,7 +30,8 @@ export function useCreateRoomMutation() {
 
 export function useUpdateRoomMutation() {
   return useMutation({
-    mutationFn: ({ roomId, nama }: { roomId: string; nama: string }) => updateRoomApi(roomId, { nama }),
+    mutationFn: ({ roomId, nama }: { roomId: string; nama: string }) =>
+      updateRoomApi(roomId, { nama }),
   });
 }
 
