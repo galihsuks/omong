@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, UserPlus, LogOut } from "lucide-react";
+import { Plus, Pencil, UserPlus, LogOut, Users, Search } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth.store";
 import { useWsStore } from "@/store/ws.store";
 import { RoomListItem } from "@/components/rooms/RoomListItem";
 import { BottomNav } from "@/components/common/BottomNav";
 import { TopBar } from "@/components/common/TopBar";
+import { InputField } from "@/components/forms/InputField";
+import { SearchSelect, type SelectOption } from "@/components/forms/SearchSelect";
 import {
   useCreateRoomMutation,
   useExitRoomMutation,
@@ -38,10 +40,21 @@ export function RoomsPage() {
     nama: "",
     keyword: "",
     selectedEmails: [] as string[],
+    selectedEmailValue: "",
   });
   const [editName, setEditName] = useState("");
 
-  const { data: searchUsersData } = useUserSearchQuery("email", createForm.keyword);
+  const { data: searchUsersData, isPending: isSearchUsersPending } = useUserSearchQuery("email", createForm.keyword);
+
+  const memberOptions = useMemo<SelectOption[]>(
+    () =>
+      (searchUsersData ?? []).map((userData) => ({
+        label: userData.nama,
+        value: userData.email,
+        meta: userData.email,
+      })),
+    [searchUsersData],
+  );
 
   useEffect(() => {
     connect();
@@ -144,7 +157,7 @@ export function RoomsPage() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["rooms"] });
         setShowCreate(false);
-        setCreateForm({ tipe: "group", nama: "", keyword: "", selectedEmails: [] });
+        setCreateForm({ tipe: "group", nama: "", keyword: "", selectedEmails: [], selectedEmailValue: "" });
       },
     });
   };
@@ -241,57 +254,71 @@ export function RoomsPage() {
           <div className="w-full max-w-lg rounded-xl border border-white/20 bg-slate-900 p-4">
             <h2 className="mb-3 text-base font-semibold">Create Room</h2>
             <div className="space-y-3">
-              <select
+              <SearchSelect
+                label="Room Type"
+                leftIcon={<Users size={16} />}
                 value={createForm.tipe}
-                onChange={(e) =>
-                  setCreateForm((prev) => ({ ...prev, tipe: e.target.value as "group" | "private" }))
+                options={[
+                  { label: "Group", value: "group" },
+                  { label: "Private", value: "private" },
+                ]}
+                onChange={(nextType) =>
+                  setCreateForm((prev) => ({ ...prev, tipe: nextType as "group" | "private" }))
                 }
-                className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-              >
-                <option value="group">Group</option>
-                <option value="private">Private</option>
-              </select>
+                searchValue=""
+                onSearchChange={() => undefined}
+                searchPlaceholder="Room type"
+                emptyText=""
+                loading={false}
+              />
 
               {createForm.tipe === "group" && (
-                <input
+                <InputField
+                  label="Room Name"
+                  leftIcon={<Pencil size={16} />}
                   value={createForm.nama}
-                  onChange={(e) => setCreateForm((prev) => ({ ...prev, nama: e.target.value }))}
-                  className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+                  onChange={(event) =>
+                    setCreateForm((prev) => ({ ...prev, nama: event.target.value }))
+                  }
                   placeholder="Room name"
                 />
               )}
 
-              <input
-                value={createForm.keyword}
-                onChange={(e) => setCreateForm((prev) => ({ ...prev, keyword: e.target.value }))}
-                className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
-                placeholder="Search member by email"
+              <SearchSelect
+                label="Invite Member"
+                leftIcon={<Search size={16} />}
+                value={createForm.selectedEmailValue}
+                options={memberOptions}
+                onChange={(selectedEmail) => {
+                  setCreateForm((prev) => ({
+                    ...prev,
+                    selectedEmailValue: selectedEmail,
+                    selectedEmails: prev.selectedEmails.includes(selectedEmail)
+                      ? prev.selectedEmails
+                      : [...prev.selectedEmails, selectedEmail],
+                  }));
+                }}
+                searchValue={createForm.keyword}
+                onSearchChange={(keyword) => setCreateForm((prev) => ({ ...prev, keyword }))}
+                searchPlaceholder="Type email keyword"
+                emptyText="No users"
+                loading={isSearchUsersPending}
               />
-
-              <div className="max-h-28 overflow-y-auto rounded-lg border border-white/10 p-2">
-                {(searchUsersData ?? []).map((u) => (
-                  <button
-                    key={u._id}
-                    onClick={() =>
-                      setCreateForm((prev) => ({
-                        ...prev,
-                        selectedEmails: prev.selectedEmails.includes(u.email)
-                          ? prev.selectedEmails
-                          : [...prev.selectedEmails, u.email],
-                      }))
-                    }
-                    className="block w-full rounded px-2 py-1 text-left text-xs hover:bg-white/10"
-                  >
-                    {u.nama} ({u.email})
-                  </button>
-                ))}
-              </div>
 
               <div className="flex flex-wrap gap-1">
                 {createForm.selectedEmails.map((email) => (
-                  <span key={email} className="rounded-full bg-cyan-300/20 px-2 py-0.5 text-[11px]">
+                  <button
+                    key={email}
+                    className="rounded-full bg-cyan-300/20 px-2 py-0.5 text-[11px]"
+                    onClick={() =>
+                      setCreateForm((prev) => ({
+                        ...prev,
+                        selectedEmails: prev.selectedEmails.filter((item) => item !== email),
+                      }))
+                    }
+                  >
                     {email}
-                  </span>
+                  </button>
                 ))}
               </div>
 
@@ -316,10 +343,11 @@ export function RoomsPage() {
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm rounded-xl border border-white/20 bg-slate-900 p-4">
             <h2 className="mb-3 text-base font-semibold">Edit Room Name</h2>
-            <input
+            <InputField
+              leftIcon={<Pencil size={16} />}
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
-              className="w-full rounded-lg border border-white/20 bg-slate-800 px-3 py-2 text-sm"
+              placeholder="Room name"
             />
             <div className="mt-3 flex justify-end gap-2">
               <button className="rounded bg-white/10 px-3 py-1 text-xs" onClick={() => setShowEdit(false)}>

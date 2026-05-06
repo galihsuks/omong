@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Users } from "lucide-react";
+import { ArrowLeft, Send, Users } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChatBubble } from "@/components/chat/ChatBubble";
 import { RoomMembersModal } from "@/components/chat/RoomMembersModal";
 import { BottomNav } from "@/components/common/BottomNav";
 import { TopBar } from "@/components/common/TopBar";
+import { InputField } from "@/components/forms/InputField";
 import { useRoomDetailQuery } from "@/hooks/useRooms";
 import {
   useAddChatMutation,
@@ -253,19 +254,18 @@ export function RoomDetailPage() {
             </button>
           )}
 
-          <div className="flex items-center gap-2">
-            <input
+          <div className="flex items-end gap-2">
+            <InputField
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              className="w-full rounded-full border border-white/20 bg-white/5 px-3 py-2 text-sm outline-none focus:border-cyan-400"
               placeholder="Write a message"
             />
             <button
               type="submit"
               disabled={isAddChatPending}
-              className="rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-60"
+              className="rounded-full bg-cyan-400 p-2.5 text-slate-900 disabled:opacity-60"
             >
-              Send
+              <Send size={16} />
             </button>
           </div>
         </form>
