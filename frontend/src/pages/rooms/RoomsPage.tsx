@@ -1,21 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Pencil, UserPlus, LogOut, Users, Search, X } from "lucide-react";
+import { Plus, Pencil, Users, Search, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth.store";
 import { useWsStore } from "@/store/ws.store";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { RoomListItem } from "@/components/rooms/RoomListItem";
 import { BottomNav } from "@/components/common/BottomNav";
+import { ModalTemplate } from "@/components/common/ModalTemplate";
 import { InputField } from "@/components/forms/InputField";
 import { SearchSelect, type SelectOption } from "@/components/forms/SearchSelect";
-import {
-  useCreateRoomMutation,
-  useExitRoomMutation,
-  useJoinRoomMutation,
-  useRoomsQuery,
-  useUpdateRoomMutation,
-  useUserSearchQuery,
-} from "@/hooks/useRooms";
+import { useCreateRoomMutation, useRoomsQuery, useUserSearchQuery } from "@/hooks/useRooms";
+import { useMyProfileQuery } from "@/hooks/useUser";
 import type { Room, WsPayload } from "@/types/domain";
 import { showToast } from "@/store/toast.store";
 
@@ -34,15 +29,11 @@ export function RoomsPage() {
     isPending: isRoomsPending,
     error: roomsError,
   } = useRoomsQuery(debouncedKeyword);
+  const { data: profileData } = useMyProfileQuery();
   const { mutate: createRoom, isPending: isCreateRoomPending } = useCreateRoomMutation();
-  const { mutate: updateRoomName } = useUpdateRoomMutation();
-  const { mutate: joinRoom } = useJoinRoomMutation();
-  const { mutate: exitRoom } = useExitRoomMutation();
 
   const [typingByRoom, setTypingByRoom] = useState<Record<string, string[]>>({});
   const [showCreate, setShowCreate] = useState(false);
-  const [showEdit, setShowEdit] = useState(false);
-  const [selectedRoomId, setSelectedRoomId] = useState("");
 
   const [createForm, setCreateForm] = useState({
     tipe: "group" as "group" | "private",
@@ -51,11 +42,10 @@ export function RoomsPage() {
     selectedEmails: [] as string[],
     selectedEmailValue: "",
   });
-  const [editName, setEditName] = useState("");
-
+  const debouncedCreateMemberKeyword = useDebouncedValue(createForm.keyword, 400);
   const { data: searchUsersData, isPending: isSearchUsersPending } = useUserSearchQuery(
     "email",
-    createForm.keyword,
+    debouncedCreateMemberKeyword,
   );
 
   useEffect(() => {
@@ -183,45 +173,11 @@ export function RoomsPage() {
     });
   };
 
-  const handleUpdateRoom = () => {
-    if (!selectedRoomId || !editName.trim()) return;
-    updateRoomName(
-      { roomId: selectedRoomId, nama: editName },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: ["rooms"] });
-          setShowEdit(false);
-          showToast("success", "Room updated successfully.");
-        },
-        onError: (error) => showToast("error", (error as Error).message),
-      },
-    );
-  };
-
   return (
-    <main className="h-screen bg-gradient-to-tr from-indigo-950 via-purple-950 to-fuchsia-900 px-4 py-5 text-white">
+    <main className="h-screen bg-gradient-to-tr from-indigo-950 via-purple-950 to-fuchsia-900 text-white">
       <section className="mx-auto flex h-full w-full max-w-3xl flex-col">
-        <header className="border-b border-white/10 px-4 py-3">
-          {isSearchOpen ? (
-            <div className="flex items-center gap-2">
-              <InputField
-                ref={searchInputRef}
-                leftIcon={<Search size={16} />}
-                value={searchKeyword}
-                onChange={(e) => setSearchKeyword(e.target.value)}
-                placeholder="Search rooms..."
-              />
-              <button
-                className="rounded-lg bg-white/10 p-2 text-slate-100 hover:bg-white/20"
-                onClick={() => {
-                  setIsSearchOpen(false);
-                  setSearchKeyword("");
-                }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-          ) : (
+        <header className="px-6 pt-4">
+          <div className="w-full pb-4 border-b border-white/10">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-base font-semibold text-white">Omong Rooms</h1>
@@ -234,68 +190,51 @@ export function RoomsPage() {
                 >
                   <Plus size={16} />
                 </button>
-                <button
-                  className="rounded-lg bg-white/10 p-2 text-slate-100 hover:bg-white/20"
-                  onClick={() => setIsSearchOpen(true)}
-                >
-                  <Search size={16} />
-                </button>
+                {!isSearchOpen && (
+                  <button
+                    className="rounded-lg bg-white/10 p-2 text-slate-100 hover:bg-white/20"
+                    onClick={() => setIsSearchOpen(true)}
+                  >
+                    <Search size={16} />
+                  </button>
+                )}
               </div>
             </div>
-          )}
+            {isSearchOpen && (
+              <div className="flex items-center gap-2 pt-3 mt-4 border-t border-white/10">
+                <InputField
+                  ref={searchInputRef}
+                  leftIcon={<Search size={16} />}
+                  value={searchKeyword}
+                  onChange={(e) => setSearchKeyword(e.target.value)}
+                  placeholder="Search rooms..."
+                />
+                <button
+                  className="rounded-lg bg-white/10 p-2 text-slate-100 hover:bg-white/20"
+                  onClick={() => {
+                    setIsSearchOpen(false);
+                    setSearchKeyword("");
+                  }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+          </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-3">
+        <div className="flex-1 overflow-y-auto py-3 px-6">
           {isRoomsPending && <p className="text-sm text-slate-200">Loading rooms...</p>}
           {roomsError && <p className="text-sm text-rose-300">{(roomsError as Error).message}</p>}
 
           <div className="space-y-2">
             {mergedRooms.map((room) => (
-              <div key={room._id}>
-                <RoomListItem room={room} currentUserId={user?.id ?? ""} />
-                <div className="mt-1 flex gap-3 pl-1 text-[11px] text-slate-300">
-                  {room.tipe === "group" && (
-                    <button
-                      onClick={() => {
-                        setSelectedRoomId(room._id);
-                        setEditName(room.nama ?? "");
-                        setShowEdit(true);
-                      }}
-                      className="inline-flex items-center gap-1 hover:text-white"
-                    >
-                      <Pencil size={12} /> edit
-                    </button>
-                  )}
-                  <button
-                    onClick={() =>
-                      joinRoom(room._id, {
-                        onSuccess: () => {
-                          queryClient.invalidateQueries({ queryKey: ["rooms"] });
-                          showToast("success", "Joined room successfully.");
-                        },
-                        onError: (error) => showToast("error", (error as Error).message),
-                      })
-                    }
-                    className="inline-flex items-center gap-1 hover:text-white"
-                  >
-                    <UserPlus size={12} /> join
-                  </button>
-                  <button
-                    onClick={() =>
-                      exitRoom(room._id, {
-                        onSuccess: () => {
-                          queryClient.invalidateQueries({ queryKey: ["rooms"] });
-                          showToast("warning", "You left the room.");
-                        },
-                        onError: (error) => showToast("error", (error as Error).message),
-                      })
-                    }
-                    className="inline-flex items-center gap-1 text-rose-300 hover:text-rose-200"
-                  >
-                    <LogOut size={12} /> exit
-                  </button>
-                </div>
-              </div>
+              <RoomListItem
+                key={room._id}
+                room={room}
+                currentUserId={user?.id ?? ""}
+                timeZone={profileData?.timezone}
+              />
             ))}
           </div>
         </div>
@@ -303,126 +242,96 @@ export function RoomsPage() {
         <BottomNav />
       </section>
 
-      {showCreate && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-lg rounded-xl border border-white/20 bg-slate-900 p-4">
-            <h2 className="mb-3 text-base font-semibold">Create Room</h2>
-            <div className="space-y-3">
-              <SearchSelect
-                label="Room Type"
-                leftIcon={<Users size={16} />}
-                value={createForm.tipe}
-                options={[
-                  { label: "Group", value: "group" },
-                  { label: "Private", value: "private" },
-                ]}
-                onChange={(nextType) =>
-                  setCreateForm((prev) => ({ ...prev, tipe: nextType as "group" | "private" }))
-                }
-                searchValue=""
-                onSearchChange={() => undefined}
-                searchPlaceholder="Room type"
-                emptyText=""
-                loading={false}
-              />
+      <ModalTemplate
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        title="Create Room"
+        maxWidthClassName="max-w-lg"
+      >
+        <div className="space-y-3">
+          <SearchSelect
+            label="Room Type"
+            leftIcon={<Users size={16} />}
+            value={createForm.tipe}
+            options={[
+              { label: "Group", value: "group" },
+              { label: "Private", value: "private" },
+            ]}
+            onChange={(nextType) =>
+              setCreateForm((prev) => ({ ...prev, tipe: nextType as "group" | "private" }))
+            }
+            searchValue=""
+            onSearchChange={() => undefined}
+            searchPlaceholder="Room type"
+            emptyText=""
+            loading={false}
+          />
 
-              {createForm.tipe === "group" && (
-                <InputField
-                  label="Room Name"
-                  leftIcon={<Pencil size={16} />}
-                  value={createForm.nama}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({ ...prev, nama: event.target.value }))
-                  }
-                  placeholder="Room name"
-                />
-              )}
-
-              <SearchSelect
-                label="Invite Member"
-                leftIcon={<Search size={16} />}
-                value={createForm.selectedEmailValue}
-                options={memberOptions}
-                onChange={(selectedEmail) => {
-                  setCreateForm((prev) => ({
-                    ...prev,
-                    selectedEmailValue: selectedEmail,
-                    selectedEmails: prev.selectedEmails.includes(selectedEmail)
-                      ? prev.selectedEmails
-                      : [...prev.selectedEmails, selectedEmail],
-                  }));
-                }}
-                searchValue={createForm.keyword}
-                onSearchChange={(keyword) => setCreateForm((prev) => ({ ...prev, keyword }))}
-                searchPlaceholder="Type email keyword"
-                emptyText="No users"
-                loading={isSearchUsersPending}
-              />
-
-              <div className="flex flex-wrap gap-1">
-                {createForm.selectedEmails.map((email) => (
-                  <button
-                    key={email}
-                    className="rounded-full bg-cyan-300/20 px-2 py-0.5 text-[11px]"
-                    onClick={() =>
-                      setCreateForm((prev) => ({
-                        ...prev,
-                        selectedEmails: prev.selectedEmails.filter((item) => item !== email),
-                      }))
-                    }
-                  >
-                    {email}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <button
-                  className="rounded bg-white/10 px-3 py-1 text-xs"
-                  onClick={() => setShowCreate(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="rounded bg-cyan-400 px-3 py-1 text-xs font-semibold text-slate-900 disabled:opacity-60"
-                  disabled={isCreateRoomPending || createForm.selectedEmails.length === 0}
-                  onClick={handleCreateRoom}
-                >
-                  Create
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showEdit && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-xl border border-white/20 bg-slate-900 p-4">
-            <h2 className="mb-3 text-base font-semibold">Edit Room Name</h2>
+          {createForm.tipe === "group" && (
             <InputField
+              label="Room Name"
               leftIcon={<Pencil size={16} />}
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
+              value={createForm.nama}
+              onChange={(event) => setCreateForm((prev) => ({ ...prev, nama: event.target.value }))}
               placeholder="Room name"
             />
-            <div className="mt-3 flex justify-end gap-2">
+          )}
+
+          <SearchSelect
+            label="Invite Member"
+            leftIcon={<Search size={16} />}
+            value={createForm.selectedEmailValue}
+            options={memberOptions}
+            onChange={(selectedEmail) => {
+              setCreateForm((prev) => ({
+                ...prev,
+                selectedEmailValue: selectedEmail,
+                selectedEmails: prev.selectedEmails.includes(selectedEmail)
+                  ? prev.selectedEmails
+                  : [...prev.selectedEmails, selectedEmail],
+              }));
+            }}
+            searchValue={createForm.keyword}
+            onSearchChange={(keyword) => setCreateForm((prev) => ({ ...prev, keyword }))}
+            searchPlaceholder="Type email keyword"
+            emptyText="No users"
+            loading={isSearchUsersPending}
+          />
+
+          <div className="flex flex-wrap gap-1">
+            {createForm.selectedEmails.map((email) => (
               <button
-                className="rounded bg-white/10 px-3 py-1 text-xs"
-                onClick={() => setShowEdit(false)}
+                key={email}
+                className="rounded-full bg-cyan-300/20 px-2 py-0.5 text-[11px]"
+                onClick={() =>
+                  setCreateForm((prev) => ({
+                    ...prev,
+                    selectedEmails: prev.selectedEmails.filter((item) => item !== email),
+                  }))
+                }
               >
-                Cancel
+                {email}
               </button>
-              <button
-                className="rounded bg-cyan-400 px-3 py-1 text-xs font-semibold text-slate-900"
-                onClick={handleUpdateRoom}
-              >
-                Save
-              </button>
-            </div>
+            ))}
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <button
+              className="rounded bg-white/10 px-3 py-1 text-xs"
+              onClick={() => setShowCreate(false)}
+            >
+              Cancel
+            </button>
+            <button
+              className="rounded bg-cyan-400 px-3 py-1 text-xs font-semibold text-slate-900 disabled:opacity-60"
+              disabled={isCreateRoomPending || createForm.selectedEmails.length === 0}
+              onClick={handleCreateRoom}
+            >
+              Create
+            </button>
           </div>
         </div>
-      )}
+      </ModalTemplate>
     </main>
   );
 }

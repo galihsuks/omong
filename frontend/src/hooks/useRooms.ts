@@ -1,10 +1,12 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
+  addMembersToRoomApi,
   createRoomApi,
   exitRoomApi,
   getRoomByIdApi,
   getRoomsApi,
   joinRoomApi,
+  searchRoomMemberCandidatesApi,
   searchUsersApi,
   updateRoomApi,
 } from "@/api/room.api";
@@ -39,6 +41,13 @@ export function useJoinRoomMutation() {
   return useMutation({ mutationFn: joinRoomApi });
 }
 
+export function useAddMembersToRoomMutation() {
+  return useMutation({
+    mutationFn: ({ roomId, anggota }: { roomId: string; anggota: string[] }) =>
+      addMembersToRoomApi(roomId, anggota),
+  });
+}
+
 export function useExitRoomMutation() {
   return useMutation({ mutationFn: exitRoomApi });
 }
@@ -48,5 +57,13 @@ export function useUserSearchQuery(filter: "nama" | "email", value: string) {
     queryKey: ["users", filter, value],
     queryFn: () => searchUsersApi(filter, value),
     enabled: value.trim().length > 1,
+  });
+}
+
+export function useRoomMemberCandidatesQuery(roomId: string, value: string) {
+  return useQuery({
+    queryKey: ["room-member-candidates", roomId, value],
+    queryFn: () => searchRoomMemberCandidatesApi(roomId, value),
+    enabled: Boolean(roomId) && value.trim().length > 1,
   });
 }

@@ -1,23 +1,20 @@
 import { Link } from "react-router-dom";
 import type { Room } from "@/types/domain";
+import { formatTimeByTimeZone } from "@/utils/dateTime";
 
 type Props = {
   room: Room & { typingNames?: string[] };
   currentUserId: string;
+  timeZone?: string;
 };
 
-export function RoomListItem({ room, currentUserId }: Props) {
+export function RoomListItem({ room, currentUserId, timeZone }: Props) {
   const preview = room.typingNames?.length
     ? `${room.typingNames.length > 1 ? `${room.typingNames.length} people` : room.typingNames[0]} typing...`
     : room.lastchat?.pesan ?? "No messages yet";
 
   const unread = room.chatsUnread > 0;
-  const lastAt = room.lastchat?.createdAt
-    ? new Date(room.lastchat.createdAt).toLocaleTimeString("id-ID", {
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "";
+  const lastAt = room.lastchat?.createdAt ? formatTimeByTimeZone(room.lastchat.createdAt, timeZone) : "";
 
   return (
     <Link

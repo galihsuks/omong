@@ -24,7 +24,7 @@ export function LoginPage() {
     login(form, {
       onSuccess: (user) => {
         setUser(user);
-        showToast("success", "Berhasil login");
+        showToast("success", "Login successful.");
         navigate("/rooms");
       },
       onError: (e) => {
@@ -38,7 +38,7 @@ export function LoginPage() {
       <section className="mx-auto flex min-h-screen w-full max-w-md items-center px-6">
         <div className="w-full p-6">
           <div className="mx-auto mb-4" style={{ maxWidth: "200px" }}>
-            <h1 className="mb-2 font-bold">Login member</h1>
+            <h1 className="mb-2 font-bold">Member Login</h1>
             <img src="/img/logo_white.svg" alt="omong logo" />
           </div>
           {err && <p className="bg-rose-900 text-sm text-rose-100 mb-4 rounded px-3 py-1">{err}</p>}
@@ -62,7 +62,7 @@ export function LoginPage() {
               onChange={(e) => setForm((prev) => ({ ...prev, sandi: e.target.value }))}
             />
             <Button className="w-full mt-3" type="submit" disabled={isLoginPending}>
-              {isLoginPending ? "Proccessing..." : "Login"}
+              {isLoginPending ? "Processing..." : "Login"}
             </Button>
           </form>
           <p className="mt-5 text-sm text-slate-300 text-center">

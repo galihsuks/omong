@@ -1,5 +1,6 @@
 import { Check, ChevronDown, Search } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 export type SelectOption = {
   label: string;
@@ -37,20 +38,46 @@ export function SearchSelect({
   disabled,
 }: SearchSelectProps) {
   const [open, setOpen] = useState(false);
+  const [dropdownStyle, setDropdownStyle] = useState<{ top: number; left: number; width: number }>({
+    top: 0,
+    left: 0,
+    width: 0,
+  });
   const selectId = useId();
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    function handleOutside(event: MouseEvent) {
+    function updateDropdownPosition() {
       if (!wrapperRef.current) return;
-      if (!wrapperRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
+      const rect = wrapperRef.current.getBoundingClientRect();
+      setDropdownStyle({
+        top: rect.bottom + 8,
+        left: rect.left,
+        width: rect.width,
+      });
     }
 
+    function handleOutside(event: MouseEvent) {
+      const targetNode = event.target as Node;
+      const clickedInsideWrapper = wrapperRef.current?.contains(targetNode);
+      const clickedInsideDropdown = dropdownRef.current?.contains(targetNode);
+      if (clickedInsideWrapper || clickedInsideDropdown) return;
+      setOpen(false);
+    }
+
+    if (open) {
+      updateDropdownPosition();
+      window.addEventListener("resize", updateDropdownPosition);
+      window.addEventListener("scroll", updateDropdownPosition, true);
+    }
     window.addEventListener("mousedown", handleOutside);
-    return () => window.removeEventListener("mousedown", handleOutside);
-  }, []);
+    return () => {
+      window.removeEventListener("mousedown", handleOutside);
+      window.removeEventListener("resize", updateDropdownPosition);
+      window.removeEventListener("scroll", updateDropdownPosition, true);
+    };
+  }, [open]);
 
   const selectedLabel = useMemo(
     () => options.find((option) => option.value === value)?.label,
@@ -82,8 +109,18 @@ export function SearchSelect({
         />
       </button>
 
-      {open && (
-        <div className="absolute z-30 mt-2 w-full rounded-xl border border-white/15 bg-slate-900 p-2 shadow-xl">
+      {open &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            className="z-[60] rounded-xl border border-white/15 bg-slate-900 p-2 shadow-xl"
+            style={{
+              position: "fixed",
+              top: dropdownStyle.top,
+              left: dropdownStyle.left,
+              width: dropdownStyle.width,
+            }}
+          >
           <div className="mb-2 flex items-center gap-2 rounded-lg border border-white/15 px-2 py-1.5">
             <Search size={14} className="text-slate-300" />
             <input
@@ -124,8 +161,9 @@ export function SearchSelect({
               })
             )}
           </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

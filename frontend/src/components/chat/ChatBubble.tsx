@@ -1,13 +1,15 @@
 import type { Chat } from "@/types/domain";
+import { formatTimeByTimeZone } from "@/utils/dateTime";
 
 type Props = {
   chat: Chat;
   isMine: boolean;
+  timeZone?: string;
   onReply: (chat: Chat) => void;
   onDelete: (chatId: string) => void;
 };
 
-export function ChatBubble({ chat, isMine, onReply, onDelete }: Props) {
+export function ChatBubble({ chat, isMine, timeZone, onReply, onDelete }: Props) {
   return (
     <div className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
       <div
@@ -29,7 +31,7 @@ export function ChatBubble({ chat, isMine, onReply, onDelete }: Props) {
         <div className="mt-2 flex items-center gap-2 text-[10px] text-slate-300">
           <button onClick={() => onReply(chat)} className="hover:text-white">Reply</button>
           {isMine && <button onClick={() => onDelete(chat._id)} className="hover:text-rose-300">Delete</button>}
-          <span className="ml-auto">{new Date(chat.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</span>
+          <span className="ml-auto">{formatTimeByTimeZone(chat.createdAt, timeZone)}</span>
         </div>
       </div>
     </div>

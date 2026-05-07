@@ -61,7 +61,7 @@ export function SignupPage() {
             />
 
             <Button className="w-full mt-3" type="submit" disabled={isSignupPending}>
-              {isSignupPending ? "Proccessing..." : "Register"}
+              {isSignupPending ? "Processing..." : "Register"}
             </Button>
           </form>
           <p className="mt-5 text-sm text-slate-300 text-center">

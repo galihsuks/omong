@@ -6,6 +6,16 @@ export type UserAuth = {
   token: string;
 };
 
+export type UserProfile = {
+  _id: string;
+  nama: string;
+  email: string;
+  timezone: string;
+  online?: { status: boolean; last: string | null };
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type UserLite = {
   _id: string;
   nama: string;

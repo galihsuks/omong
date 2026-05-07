@@ -4,6 +4,7 @@ interface IUser {
   email: string;
   sandi: string;
   nama: string;
+  timezone: string;
   online: { status: boolean; last: Date | null };
   token: Types.ObjectId[];
 }
@@ -13,6 +14,7 @@ const userSchema = new Schema<IUser>(
     email: { type: String, required: true, unique: true },
     sandi: { type: String, required: true },
     nama: { type: String, required: true },
+    timezone: { type: String, default: "UTC" },
     online: {
       status: { type: Boolean, default: false },
       last: { type: Date, default: null },

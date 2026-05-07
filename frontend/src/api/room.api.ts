@@ -30,12 +30,26 @@ export function joinRoomApi(roomId: string) {
   return apiClient<{ pesan?: string }>(`/room/join/${roomId}`);
 }
 
+export function addMembersToRoomApi(roomId: string, anggota: string[]) {
+  return apiClient<Room>(`/room/members/${roomId}`, {
+    method: "POST",
+    body: JSON.stringify({ anggota }),
+  });
+}
+
 export function exitRoomApi(roomId: string) {
   return apiClient<{ pesan: string }>(`/room/exit/${roomId}`);
 }
 
 export function searchUsersApi(filter: "nama" | "email", value: string) {
   return apiClient<UserLite[]>(`/user/getby/${filter}`, {
+    method: "POST",
+    body: JSON.stringify({ value }),
+  });
+}
+
+export function searchRoomMemberCandidatesApi(roomId: string, value: string) {
+  return apiClient<Array<Pick<UserLite, "_id" | "nama" | "email">>>(`/user/room-members/${roomId}`, {
     method: "POST",
     body: JSON.stringify({ value }),
   });

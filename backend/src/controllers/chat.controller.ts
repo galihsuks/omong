@@ -6,9 +6,9 @@ import { Room } from "../models/room.model";
 export async function addChat(req: AuthRequest, res: Response) {
   try {
     const room = await Room.findById(req.params.id).populate("anggota", "nama email");
-    if (!room) return res.status(404).json({ pesan: "Id room tidak ditemukan" });
+    if (!room) return res.status(404).json({ pesan: "Room ID not found." });
     const hasAccess = (room.anggota as any[]).some((a) => String(a._id) === req.user?.id);
-    if (!hasAccess) return res.status(403).json({ pesan: "Anda tidak memiliki akses ke room ini" });
+    if (!hasAccess) return res.status(403).json({ pesan: "You do not have access to this room." });
     const chat = await Chat.create({
       idRoom: req.params.id,
       pesan: req.body.pesan,
@@ -32,9 +32,9 @@ export async function addChat(req: AuthRequest, res: Response) {
 
 export async function delChat(req: AuthRequest, res: Response) {
   const chat = await Chat.findById(req.params.id);
-  if (!chat) return res.status(404).json({ pesan: "Id chat tidak ditemukan" });
+  if (!chat) return res.status(404).json({ pesan: "Chat ID not found." });
   if (String(chat.idPengirim) !== req.user?.id)
-    return res.status(404).json({ pesan: "Anda tidak memiliki akses hapus chat ini" });
+    return res.status(404).json({ pesan: "You do not have permission to delete this chat." });
   await Chat.findByIdAndDelete(req.params.id);
   return res.status(200).json(chat);
 }

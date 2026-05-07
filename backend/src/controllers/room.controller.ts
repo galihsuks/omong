@@ -25,11 +25,11 @@ export async function getRoom(req: AuthRequest, res: Response) {
           ],
         });
 
-      if (!room) return res.status(404).json({ pesan: "Id room tidak ditemukan" });
+      if (!room) return res.status(404).json({ pesan: "Room ID not found." });
 
       const hasAccess = (room.anggota as any[]).some((a) => String(a._id) === req.user?.id);
       if (!hasAccess) {
-        return res.status(400).json({ pesan: "Anda tidak memiliki akses ke room ini" });
+        return res.status(400).json({ pesan: "You do not have access to this room." });
       }
 
       return res.status(200).json(room);
@@ -94,16 +94,16 @@ export async function addRoom(req: AuthRequest, res: Response) {
 
     const { nama, anggota, tipe } = req.body;
     if (!Array.isArray(anggota) || anggota.length === 0) {
-      return res.status(404).json({ pesan: "Pilih temanmu minimal 1" });
+      return res.status(404).json({ pesan: "Please select at least one member." });
     }
 
     const users = await User.find({ email: { $in: anggota } });
     if (users.length !== anggota.length) {
-      return res.status(404).json({ pesan: "Ada email anggota yang tidak ditemukan" });
+      return res.status(404).json({ pesan: "Some member emails were not found." });
     }
 
     if (tipe === "private" && users.length > 1) {
-      return res.status(400).json({ pesan: "Tipe private hanya bisa invite 1 anggota" });
+      return res.status(400).json({ pesan: "Private rooms can only invite one member." });
     }
 
     const room = await Room.create({
@@ -120,12 +120,12 @@ export async function addRoom(req: AuthRequest, res: Response) {
 
 export async function joinRoom(req: AuthRequest, res: Response) {
   const room = await Room.findById(req.params.id);
-  if (!room) return res.status(404).json({ pesan: "Id room tidak ditemukan" });
+  if (!room) return res.status(404).json({ pesan: "Room ID not found." });
   if (room.tipe === "private") {
-    return res.status(400).json({ pesan: "Room private tidak bisa di join" });
+    return res.status(400).json({ pesan: "Private rooms cannot be joined." });
   }
   if ((room.anggota as any[]).some((a) => String(a) === req.user?.id)) {
-    return res.status(404).json({ pesan: "Anda sudah join room" });
+    return res.status(404).json({ pesan: "You have already joined this room." });
   }
 
   const data = await Room.findByIdAndUpdate(
@@ -137,13 +137,56 @@ export async function joinRoom(req: AuthRequest, res: Response) {
   return res.status(200).json(data);
 }
 
+export async function addMembersToRoom(req: AuthRequest, res: Response) {
+  try {
+    if (!req.user) return res.status(401).json({ pesan: "Unauthorized" });
+
+    const room = await Room.findById(req.params.id).populate("anggota", "email");
+    if (!room) return res.status(404).json({ pesan: "Room ID not found." });
+
+    if (room.tipe === "private") {
+      return res.status(400).json({ pesan: "Private rooms cannot add members." });
+    }
+
+    const hasAccess = (room.anggota as any[]).some((a) => String(a._id ?? a) === req.user?.id);
+    if (!hasAccess) {
+      return res.status(403).json({ pesan: "You do not have access to this room." });
+    }
+
+    const { anggota } = req.body as { anggota?: string[] };
+    if (!Array.isArray(anggota) || anggota.length === 0) {
+      return res.status(400).json({ pesan: "Please select at least one member." });
+    }
+
+    const users = await User.find({ email: { $in: anggota } });
+    if (!users.length) return res.status(404).json({ pesan: "Members not found." });
+
+    const existingIds = new Set((room.anggota as any[]).map((a) => String(a._id ?? a)));
+    const nextIds = users.map((user) => String(user._id)).filter((id) => !existingIds.has(id));
+
+    if (!nextIds.length) {
+      return res.status(400).json({ pesan: "All selected users are already members of this room." });
+    }
+
+    const data = await Room.findByIdAndUpdate(
+      req.params.id,
+      { $addToSet: { anggota: { $each: nextIds } } },
+      { new: true },
+    ).populate("anggota", "nama email online");
+
+    return res.status(200).json(data);
+  } catch (error: any) {
+    return res.status(500).json({ pesan: error.message });
+  }
+}
+
 export async function exitRoom(req: AuthRequest, res: Response) {
   const room = await Room.findById(req.params.id).populate("anggota", "nama email");
-  if (!room) return res.status(404).json({ pesan: "Id room tidak ditemukan" });
+  if (!room) return res.status(404).json({ pesan: "Room ID not found." });
 
   await Room.findByIdAndUpdate(req.params.id, { $pull: { anggota: req.user?.id } });
 
-  return res.status(200).json({ pesan: "Anda telah keluar dari room" });
+  return res.status(200).json({ pesan: "You have left the room." });
 }
 
 export async function updateRoom(req: AuthRequest, res: Response) {
@@ -151,15 +194,15 @@ export async function updateRoom(req: AuthRequest, res: Response) {
     const { nama } = req.body as { nama?: string };
     const room = await Room.findById(req.params.id);
 
-    if (!room) return res.status(404).json({ pesan: "Room tidak ditemukan" });
+    if (!room) return res.status(404).json({ pesan: "Room not found." });
 
     const hasAccess = (room.anggota as any[]).some((a) => String(a) === req.user?.id);
     if (!hasAccess) {
-      return res.status(403).json({ pesan: "Anda tidak memiliki akses edit room ini" });
+      return res.status(403).json({ pesan: "You do not have permission to edit this room." });
     }
 
     if (room.tipe === "private") {
-      return res.status(400).json({ pesan: "Room private tidak dapat diedit" });
+      return res.status(400).json({ pesan: "Private rooms cannot be edited." });
     }
 
     await Room.findByIdAndUpdate(req.params.id, { nama });
