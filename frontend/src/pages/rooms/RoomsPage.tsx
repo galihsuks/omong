@@ -17,7 +17,7 @@ import { showToast } from "@/store/toast.store";
 export function RoomsPage() {
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
-  const { connect, subscribe, unsubscribe, sendOnline } = useWsStore();
+  const { connect, subscribe, unsubscribe, sendOnline, isUserOnline, onlineClients } = useWsStore();
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -144,9 +144,15 @@ export function RoomsPage() {
     () =>
       (roomsData ?? []).map((room) => ({
         ...room,
+        online:
+          room.tipe === "private"
+            ? room.anggota.some((anggota) => {
+                return anggota._id !== user?.id && isUserOnline(anggota._id);
+              })
+            : false,
         typingNames: typingByRoom[room._id] ?? [],
       })),
-    [roomsData, typingByRoom],
+    [isUserOnline, roomsData, typingByRoom, user?.id, onlineClients],
   );
 
   const handleCreateRoom = () => {

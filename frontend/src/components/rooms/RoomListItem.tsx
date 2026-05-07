@@ -11,10 +11,12 @@ type Props = {
 export function RoomListItem({ room, currentUserId, timeZone }: Props) {
   const preview = room.typingNames?.length
     ? `${room.typingNames.length > 1 ? `${room.typingNames.length} people` : room.typingNames[0]} typing...`
-    : room.lastchat?.pesan ?? "No messages yet";
+    : (room.lastchat?.pesan ?? "No messages yet");
 
   const unread = room.chatsUnread > 0;
-  const lastAt = room.lastchat?.createdAt ? formatTimeByTimeZone(room.lastchat.createdAt, timeZone) : "";
+  const lastAt = room.lastchat?.createdAt
+    ? formatTimeByTimeZone(room.lastchat.createdAt, timeZone)
+    : "";
 
   return (
     <Link

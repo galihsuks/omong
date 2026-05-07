@@ -9,12 +9,14 @@ import { useMyProfileQuery, useUpdateMyProfileMutation } from "@/hooks/useUser";
 import { useAuthStore } from "@/store/auth.store";
 import { showToast } from "@/store/toast.store";
 import { formatDateTimeByTimeZone } from "@/utils/dateTime";
+import { useWsStore } from "@/store/ws.store";
 
 export function ProfilePage() {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
   const logout = useAuthStore((state) => state.logout);
+  const { connect, sendOnline, isUserOnline } = useWsStore();
   const { data: profileData, isPending: isProfilePending } = useMyProfileQuery();
   const { mutate: updateProfile, isPending: isUpdatePending } = useUpdateMyProfileMutation();
   const [form, setForm] = useState({
@@ -34,6 +36,11 @@ export function ProfilePage() {
     });
   }, [profileData]);
 
+  useEffect(() => {
+    connect();
+    if (user?.id) sendOnline(user.id);
+  }, [connect, sendOnline, user?.id]);
+
   const createdAtLabel = useMemo(() => {
     if (!profileData?.createdAt) return "-";
     return formatDateTimeByTimeZone(profileData.createdAt, form.timezone);
@@ -44,7 +51,8 @@ export function ProfilePage() {
     return formatDateTimeByTimeZone(profileData.updatedAt, form.timezone);
   }, [form.timezone, profileData?.updatedAt]);
 
-  const onlineLabel = profileData?.online?.status
+  const isRealtimeOnline = isUserOnline(user?.id);
+  const onlineLabel = isRealtimeOnline
     ? "Online"
     : profileData?.online?.last
       ? `Last seen ${formatDateTimeByTimeZone(profileData.online.last, form.timezone)}`

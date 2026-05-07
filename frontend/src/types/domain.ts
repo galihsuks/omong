@@ -36,6 +36,7 @@ export type Chat = {
   idRoom: string;
   idPengirim: UserLite;
   idChatReply: null | ChatReply;
+  totalReadersTarget?: number;
   seenUsers: Array<{ user: UserLite; timestamp: string }>;
 };
 

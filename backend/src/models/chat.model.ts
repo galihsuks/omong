@@ -11,6 +11,7 @@ interface IChat {
   idPengirim: Types.ObjectId;
   idRoom: Types.ObjectId;
   idChatReply: Types.ObjectId | null;
+  totalReadersTarget: number;
   seenUsers: ISeenUser[];
 }
 
@@ -20,6 +21,7 @@ const chatSchema = new Schema<IChat>(
     idPengirim: { type: Schema.Types.ObjectId, ref: "User", required: true },
     idRoom: { type: Schema.Types.ObjectId, ref: "Room", required: true },
     idChatReply: { type: Schema.Types.ObjectId, ref: "Chat", default: null },
+    totalReadersTarget: { type: Number, default: 0 },
     seenUsers: [
       {
         timestamp: { type: Date, default: Date.now },

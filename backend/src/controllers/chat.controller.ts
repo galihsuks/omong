@@ -9,11 +9,13 @@ export async function addChat(req: AuthRequest, res: Response) {
     if (!room) return res.status(404).json({ pesan: "Room ID not found." });
     const hasAccess = (room.anggota as any[]).some((a) => String(a._id) === req.user?.id);
     if (!hasAccess) return res.status(403).json({ pesan: "You do not have access to this room." });
+    const totalReadersTarget = Math.max((room.anggota as any[]).length - 1, 0);
     const chat = await Chat.create({
       idRoom: req.params.id,
       pesan: req.body.pesan,
       idPengirim: req.user?.id,
       idChatReply: req.body.idChatReply || null,
+      totalReadersTarget,
       seenUsers: [{ user: req.user?.id, timestamp: Date.now() }],
     });
     const populated = await Chat.findById(chat._id)

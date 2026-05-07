@@ -6,6 +6,8 @@ type MessageHandler = (payload: unknown) => void;
 type WsStore = {
   ws: WebSocket | null;
   handlers: Record<string, MessageHandler[]>;
+  onlineClients: string[];
+  isUserOnline: (userId?: string | null) => boolean;
   connect: () => void;
   subscribe: (roomId: string, handler: MessageHandler) => void;
   unsubscribe: (roomId: string, handler: MessageHandler) => void;
@@ -16,18 +18,32 @@ type WsStore = {
 export const useWsStore = create<WsStore>((set, get) => ({
   ws: null,
   handlers: {},
+  onlineClients: [],
+  isUserOnline: (userId) => {
+    if (!userId) return false;
+    return get().onlineClients.includes(userId);
+  },
   connect: () => {
     if (get().ws) return;
 
     const ws = new WebSocket(env.VITE_WS_URL);
     ws.onmessage = (event) => {
       const parsed = JSON.parse(event.data);
-      if (parsed.tipe !== "send") return;
-      const roomId = parsed.data?.room_id as string;
-      const payload = parsed.data?.payload;
-      (get().handlers[roomId] ?? []).forEach((handler) => handler(payload));
+      if (parsed.tipe === "online") {
+        const clients = Array.isArray(parsed.data?.clients)
+          ? (parsed.data.clients as string[])
+          : [];
+        set({ onlineClients: clients });
+        return;
+      }
+
+      if (parsed.tipe === "send") {
+        const roomId = parsed.data?.room_id as string;
+        const payload = parsed.data?.payload;
+        (get().handlers[roomId] ?? []).forEach((handler) => handler(payload));
+      }
     };
-    ws.onclose = () => set({ ws: null, handlers: {} });
+    ws.onclose = () => set({ ws: null, handlers: {}, onlineClients: [] });
 
     set({ ws });
   },

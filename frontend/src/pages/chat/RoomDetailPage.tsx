@@ -36,7 +36,8 @@ export function RoomDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
-  const { connect, subscribe, unsubscribe, send } = useWsStore();
+  const { connect, subscribe, unsubscribe, send, sendOnline, isUserOnline, onlineClients } =
+    useWsStore();
 
   const [message, setMessage] = useState("");
   const [replyTarget, setReplyTarget] = useState<Chat | null>(null);
@@ -57,6 +58,7 @@ export function RoomDetailPage() {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const typingTimeoutRef = useRef<number | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
+  const messageInputRef = useRef<HTMLInputElement | null>(null);
 
   const {
     data: roomDetailData,
@@ -79,6 +81,7 @@ export function RoomDetailPage() {
   useEffect(() => {
     if (!roomId) return;
     connect();
+    if (user?.id) sendOnline(user.id);
 
     const handler = (payload: unknown) => {
       const data = payload as WsPayload;
@@ -134,7 +137,7 @@ export function RoomDetailPage() {
 
     subscribe(roomId, handler);
     return () => unsubscribe(roomId, handler);
-  }, [connect, queryClient, roomId, subscribe, unsubscribe, user?.nama]);
+  }, [connect, queryClient, roomId, sendOnline, subscribe, unsubscribe, user?.id, user?.nama]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -186,7 +189,7 @@ export function RoomDetailPage() {
     const friend = roomDetailData.anggota.find((anggota) => anggota._id !== user?.id);
     if (!friend) return "Private chat";
 
-    if (friend.online?.status) return "Online";
+    if (isUserOnline(friend._id)) return "Online";
 
     if (friend.online?.last) {
       const last = new Date(friend.online.last);
@@ -197,7 +200,7 @@ export function RoomDetailPage() {
     }
 
     return "Offline";
-  }, [profileData?.timezone, roomDetailData, user?.id]);
+  }, [isUserOnline, profileData?.timezone, roomDetailData, user?.id, onlineClients]);
 
   const memberOptions = useMemo<SelectOption[]>(() => {
     return (searchUsersData ?? []).map((nextUser) => ({
@@ -349,6 +352,13 @@ export function RoomDetailPage() {
     );
   };
 
+  const handleReply = (nextReplyTarget: Chat) => {
+    setReplyTarget(nextReplyTarget);
+    window.setTimeout(() => {
+      messageInputRef.current?.focus();
+    }, 0);
+  };
+
   const typingLabel =
     typingNames.length > 1
       ? `${typingNames.length} people typing`
@@ -388,8 +398,9 @@ export function RoomDetailPage() {
               key={chat._id}
               chat={chat}
               isMine={chat.idPengirim._id === user?.id}
+              currentUserId={user?.id}
               timeZone={profileData?.timezone}
-              onReply={setReplyTarget}
+              onReply={handleReply}
               onDelete={handleDelete}
             />
           ))}
@@ -417,6 +428,7 @@ export function RoomDetailPage() {
 
             <div className="flex items-end gap-2">
               <InputField
+                ref={messageInputRef}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Write a message"
