@@ -1,4 +1,5 @@
 import { ModalTemplate } from "@/components/common/ModalTemplate";
+import { useOnlineMembersStore } from "@/store/onlineMembers.store";
 import type { Room } from "@/types/domain";
 
 type Props = {
@@ -8,6 +9,7 @@ type Props = {
 };
 
 export function RoomMembersModal({ room, open, onClose }: Props) {
+  const isOnlineById = useOnlineMembersStore((state) => state.isOnlineById);
   return (
     <ModalTemplate open={open} onClose={onClose} title={`Members: ${room.nama}`} maxWidthClassName="max-w-md">
       <div className="space-y-2">
@@ -22,7 +24,7 @@ export function RoomMembersModal({ room, open, onClose }: Props) {
             </div>
             <span
               className={`h-2.5 w-2.5 rounded-full ${
-                anggota.online?.status ? "bg-green-400" : "bg-slate-500"
+                isOnlineById(anggota._id) ? "bg-green-400" : "bg-slate-500"
               }`}
             />
           </div>

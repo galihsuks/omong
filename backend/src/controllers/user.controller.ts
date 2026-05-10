@@ -12,7 +12,6 @@ function toUserProfileDto(user: any) {
     nama: user.nama,
     email: user.email,
     timezone: user.timezone ?? "UTC",
-    online: user.online,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
@@ -20,66 +19,53 @@ function toUserProfileDto(user: any) {
 
 export async function getUserCur(req: AuthRequest, res: Response) {
   const user = await User.findById(req.user?.id).select(
-    "_id nama email timezone online createdAt updatedAt",
+    "_id nama email timezone createdAt updatedAt",
   );
-  if (!user) return res.status(404).json({ pesan: "User not found." });
-  return res.status(200).json(toUserProfileDto(user));
+  if (!user) return res.status(404).json({ message: "User not found.", data: null });
+  return res.status(200).json({ message: "Success get user", data: toUserProfileDto(user) });
 }
 
-export async function getBy(req: AuthRequest, res: Response) {
+export async function searchUsers(req: AuthRequest, res: Response) {
   try {
-    const filter = req.params.filter as "nama" | "email";
-    if (!["nama", "email"].includes(filter)) return res.status(400).json({ pesan: "Invalid filter." });
-    const query: Record<string, unknown> = {};
-    query[filter] = { $regex: req.body.value, $options: "i", $ne: req.user?.[filter] };
-    const users = await User.find(query).limit(Number(req.query.limit ?? 5));
-    return res.status(200).json(users);
-  } catch (error: any) {
-    return res.status(500).json({ pesan: error.message });
-  }
-}
-
-export async function searchRoomMemberCandidates(req: AuthRequest, res: Response) {
-  try {
-    if (!req.user) return res.status(401).json({ pesan: "Unauthorized" });
-
-    const roomId = String(req.params.roomId ?? "").trim();
-    const keyword = String(req.body.value ?? "").trim();
-
-    if (!roomId) return res.status(400).json({ pesan: "Room ID is required." });
-    if (keyword.length < 2) return res.status(200).json([]);
-
-    const room = await Room.findById(roomId).select("anggota");
-    if (!room) return res.status(404).json({ pesan: "Room ID not found." });
-
-    const hasAccess = (room.anggota as any[]).some((anggota) => String(anggota) === req.user?.id);
-    if (!hasAccess) {
-      return res.status(403).json({ pesan: "You do not have access to this room." });
+    if (!req.user) return res.status(401).json({ message: "Unauthorized", data: null });
+    const keywords = String(req.query.keywords ?? "").trim();
+    const roomExceptId = String(req.query.room_except_id ?? "").trim();
+    if (keywords.length < 2) {
+      return res.status(200).json({ message: "Success get members", data: [] });
     }
 
-    const users = await User.find({
-      email: { $regex: keyword, $options: "i" },
-      _id: { $nin: room.anggota },
-    })
-      .select("_id nama email")
-      .limit(Number(req.query.limit ?? 10));
+    const query: Record<string, unknown> = {
+      $or: [
+        { nama: { $regex: keywords, $options: "i" } },
+        { email: { $regex: keywords, $options: "i" } },
+      ],
+      _id: { $ne: req.user.id },
+    };
 
-    return res.status(200).json(users);
+    if (roomExceptId) {
+      const room = await Room.findById(roomExceptId).select("anggota");
+      if (room) query._id = { $nin: [...room.anggota, req.user.id] };
+    }
+
+    const users = await User.find(query)
+      .select("_id nama email")
+      .limit(Number(req.query.limit ?? 20));
+    return res.status(200).json({ message: "Success get members", data: users });
   } catch (error: any) {
-    return res.status(500).json({ pesan: error.message });
+    return res.status(500).json({ message: error.message, data: null });
   }
 }
 
 export async function updateUser(req: AuthRequest, res: Response) {
   try {
-    if (!req.user) return res.status(401).json({ pesan: "Unauthorized" });
+    if (!req.user) return res.status(401).json({ message: "Unauthorized", data: null });
     const data: Record<string, string> = {};
     if (req.body.sandi) data.sandi = await bcrypt.hash(req.body.sandi, 10);
     if (req.body.nama) data.nama = req.body.nama;
     if (req.body.email) {
       const emailExists = await User.findOne({ email: req.body.email });
       if (emailExists && String(emailExists._id) !== req.user.id) {
-        return res.status(400).json({ pesan: "Email is already in use." });
+        return res.status(400).json({ message: "Email is already in use.", data: null });
       }
       data.email = req.body.email;
     }
@@ -87,28 +73,47 @@ export async function updateUser(req: AuthRequest, res: Response) {
       try {
         new Intl.DateTimeFormat("en-US", { timeZone: req.body.timezone });
       } catch {
-        return res.status(400).json({ pesan: "Invalid timezone." });
+        return res.status(400).json({ message: "Invalid timezone.", data: null });
       }
       data.timezone = req.body.timezone;
     }
     const user = await User.findByIdAndUpdate(req.user.id, data, { new: true }).select(
-      "_id nama email timezone online createdAt updatedAt",
+      "_id nama email timezone createdAt updatedAt",
     );
-    return res.status(200).json(toUserProfileDto(user));
+    return res.status(200).json({ message: "Success update user", data: toUserProfileDto(user) });
   } catch (error: any) {
-    return res.status(500).json({ pesan: error.message });
+    return res.status(500).json({ message: error.message, data: null });
+  }
+}
+
+export async function getOnlineUsers(req: AuthRequest, res: Response) {
+  try {
+    if (!req.user) return res.status(401).json({ message: "Unauthorized", data: null });
+    const userIds = Array.isArray(req.body?.user_ids) ? (req.body.user_ids as string[]) : [];
+    if (!userIds.length) return res.status(200).json({ message: "Success get users", data: [] });
+
+    const users = await User.find({ _id: { $in: userIds } }).select("_id online");
+    const data = users.map((user: any) => ({
+      _id: String(user._id),
+      isOnline: Boolean(user.online?.status),
+      lastSeen: user.online?.last ? new Date(user.online.last).toISOString() : null,
+    }));
+
+    return res.status(200).json({ message: "Success get users", data });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message, data: null });
   }
 }
 
 export async function deleteUser(req: AuthRequest, res: Response) {
   try {
-    if (!req.user) return res.status(401).json({ pesan: "Unauthorized" });
+    if (!req.user) return res.status(401).json({ message: "Unauthorized", data: null });
     const user = await User.findOneAndDelete({ email: req.user.email });
-    if (!user) return res.status(404).json({ pesan: "User not found." });
+    if (!user) return res.status(404).json({ message: "User not found.", data: null });
     await Token.deleteMany({ idUser: user._id });
     await Room.updateMany({ anggota: user._id }, { $pull: { anggota: user._id } });
-    return res.status(200).json({ pesan: "User deleted successfully." });
+    return res.status(200).json({ message: "User deleted successfully.", data: null });
   } catch (error: any) {
-    return res.status(500).json({ pesan: error.message });
+    return res.status(500).json({ message: error.message, data: null });
   }
 }

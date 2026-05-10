@@ -3,6 +3,7 @@ import { Plus, Pencil, Users, Search, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth.store";
 import { useWsStore } from "@/store/ws.store";
+import { useOnlineMembersStore } from "@/store/onlineMembers.store";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { RoomListItem } from "@/components/rooms/RoomListItem";
 import { BottomNav } from "@/components/common/BottomNav";
@@ -17,7 +18,8 @@ import { showToast } from "@/store/toast.store";
 export function RoomsPage() {
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
-  const { connect, subscribe, unsubscribe, sendOnline, isUserOnline, onlineClients } = useWsStore();
+  const { connect, subscribe, unsubscribe, sendOnline } = useWsStore();
+  const { isOnlineById, members } = useOnlineMembersStore();
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -147,12 +149,12 @@ export function RoomsPage() {
         online:
           room.tipe === "private"
             ? room.anggota.some((anggota) => {
-                return anggota._id !== user?.id && isUserOnline(anggota._id);
+                return anggota._id !== user?.id && isOnlineById(anggota._id);
               })
             : false,
         typingNames: typingByRoom[room._id] ?? [],
       })),
-    [isUserOnline, roomsData, typingByRoom, user?.id, onlineClients],
+    [isOnlineById, roomsData, typingByRoom, user?.id, members],
   );
 
   const handleCreateRoom = () => {

@@ -5,13 +5,14 @@ import { Room } from "../models/room.model";
 
 export async function addChat(req: AuthRequest, res: Response) {
   try {
-    const room = await Room.findById(req.params.id).populate("anggota", "nama email");
-    if (!room) return res.status(404).json({ pesan: "Room ID not found." });
+    const room = await Room.findById(req.params.room_id).populate("anggota", "nama email");
+    if (!room) return res.status(404).json({ message: "Room ID not found.", data: null });
     const hasAccess = (room.anggota as any[]).some((a) => String(a._id) === req.user?.id);
-    if (!hasAccess) return res.status(403).json({ pesan: "You do not have access to this room." });
+    if (!hasAccess)
+      return res.status(403).json({ message: "You do not have access to this room.", data: null });
     const totalReadersTarget = Math.max((room.anggota as any[]).length - 1, 0);
     const chat = await Chat.create({
-      idRoom: req.params.id,
+      idRoom: req.params.room_id,
       pesan: req.body.pesan,
       idPengirim: req.user?.id,
       idChatReply: req.body.idChatReply || null,
@@ -26,39 +27,108 @@ export async function addChat(req: AuthRequest, res: Response) {
         select: "pesan idPengirim",
         populate: { path: "idPengirim", select: "nama" },
       });
-    return res.status(200).json(populated);
+    return res.status(200).json({ message: "Success add chat", data: populated });
   } catch (error: any) {
-    return res.status(500).json({ pesan: error.message });
+    return res.status(500).json({ message: error.message, data: null });
   }
 }
 
 export async function delChat(req: AuthRequest, res: Response) {
-  const chat = await Chat.findById(req.params.id);
-  if (!chat) return res.status(404).json({ pesan: "Chat ID not found." });
+  const chat = await Chat.findById(req.params.chat_id);
+  if (!chat) return res.status(404).json({ message: "Chat ID not found.", data: null });
   if (String(chat.idPengirim) !== req.user?.id)
-    return res.status(404).json({ pesan: "You do not have permission to delete this chat." });
-  await Chat.findByIdAndDelete(req.params.id);
-  return res.status(200).json(chat);
+    return res.status(404).json({ message: "You do not have permission to delete this chat.", data: null });
+  await Chat.findByIdAndDelete(req.params.chat_id);
+  return res.status(200).json({ message: "Success delete chat", data: chat });
 }
 
 export async function seen(req: AuthRequest, res: Response) {
   const chatsUpdated = await Chat.find({
-    idRoom: req.params.id,
+    idRoom: req.params.room_id,
     "seenUsers.user": { $ne: req.user?.id },
   });
   const timestamp = Date.now();
   await Chat.updateMany(
-    { idRoom: req.params.id, "seenUsers.user": { $ne: req.user?.id } },
+    { idRoom: req.params.room_id, "seenUsers.user": { $ne: req.user?.id } },
     { $push: { seenUsers: { user: req.user?.id, timestamp } } },
   );
   return res
     .status(200)
     .json({
-      room_id: req.params.id,
+      message: "Success seen chats",
+      data: {
+      room_id: req.params.room_id,
       chats: chatsUpdated.map((chat) => chat._id),
       addToSeenUsers: {
         user: { _id: req.user?.id, nama: req.user?.nama, email: req.user?.email },
         timestamp,
       },
+      },
     });
+}
+
+export async function getRoomChats(req: AuthRequest, res: Response) {
+  try {
+    if (!req.user) return res.status(401).json({ message: "Unauthorized", data: null });
+    const roomId = req.params.room_id;
+    const page = Math.max(Number(req.query.page ?? 1), 1);
+    const limit = Math.min(Math.max(Number(req.query.limit ?? 20), 1), 100);
+    const skip = (page - 1) * limit;
+
+    const room = await Room.findById(roomId).populate("anggota", "_id");
+    if (!room) return res.status(404).json({ message: "Room ID not found.", data: null });
+
+    const hasAccess = (room.anggota as any[]).some((a) => String(a._id) === req.user?.id);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "You do not have access to this room.", data: null });
+    }
+
+    const totalChats = await Chat.countDocuments({ idRoom: roomId });
+    const chatsDesc = await Chat.find({ idRoom: roomId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("idPengirim", "nama email")
+      .populate("seenUsers.user", "nama email")
+      .populate({
+        path: "idChatReply",
+        select: "pesan idPengirim",
+        populate: { path: "idPengirim", select: "nama" },
+      });
+
+    const chats = chatsDesc.reverse().map((chat: any) => ({
+      totalReadersTarget: chat.totalReadersTarget ?? 0,
+      _id: chat._id,
+      pesan: chat.pesan,
+      pengirim: {
+        _id: chat.idPengirim?._id,
+        email: chat.idPengirim?.email,
+        nama: chat.idPengirim?.nama,
+      },
+      reply: chat.idChatReply
+        ? {
+            _id: chat.idChatReply._id,
+            pesan: chat.idChatReply.pesan,
+            namaPengirim: chat.idChatReply.idPengirim?.nama ?? "",
+          }
+        : null,
+      isPending: false,
+      seenUsers: (chat.seenUsers ?? []).map((item: any) => ({
+        timestamp: item.timestamp,
+        namaUser: item.user?.nama ?? "",
+      })),
+      createdAt: chat.createdAt,
+    }));
+
+    return res.status(200).json({
+      message: "Success get chats",
+      data: {
+        totalChats,
+        page,
+        chats,
+      },
+    });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message, data: null });
+  }
 }

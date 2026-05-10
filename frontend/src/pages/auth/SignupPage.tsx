@@ -17,7 +17,7 @@ export function SignupPage() {
     event.preventDefault();
     signup(form, {
       onSuccess: (e) => {
-        showToast("success", e.pesan);
+        showToast("success", e.message);
         navigate("/login");
       },
       onError: (e) => {

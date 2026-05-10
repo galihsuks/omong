@@ -10,13 +10,16 @@ import { useAuthStore } from "@/store/auth.store";
 import { showToast } from "@/store/toast.store";
 import { formatDateTimeByTimeZone } from "@/utils/dateTime";
 import { useWsStore } from "@/store/ws.store";
+import { useOnlineMembersStore } from "@/store/onlineMembers.store";
 
 export function ProfilePage() {
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
   const logout = useAuthStore((state) => state.logout);
-  const { connect, sendOnline, isUserOnline } = useWsStore();
+  const { connect, sendOnline } = useWsStore();
+  const isOnlineById = useOnlineMembersStore((state) => state.isOnlineById);
+  const getLastSeenById = useOnlineMembersStore((state) => state.getLastSeenById);
   const { data: profileData, isPending: isProfilePending } = useMyProfileQuery();
   const { mutate: updateProfile, isPending: isUpdatePending } = useUpdateMyProfileMutation();
   const [form, setForm] = useState({
@@ -51,11 +54,12 @@ export function ProfilePage() {
     return formatDateTimeByTimeZone(profileData.updatedAt, form.timezone);
   }, [form.timezone, profileData?.updatedAt]);
 
-  const isRealtimeOnline = isUserOnline(user?.id);
+  const isRealtimeOnline = isOnlineById(user?.id);
+  const lastSeen = getLastSeenById(user?.id);
   const onlineLabel = isRealtimeOnline
     ? "Online"
-    : profileData?.online?.last
-      ? `Last seen ${formatDateTimeByTimeZone(profileData.online.last, form.timezone)}`
+    : lastSeen
+      ? `Last seen ${formatDateTimeByTimeZone(lastSeen, form.timezone)}`
       : "Offline";
 
   const handleSave = () => {

@@ -15,7 +15,11 @@ export async function apiClient<T>(path: string, init: RequestInit = {}): Promis
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error((data as { pesan?: string }).pesan ?? "Request failed");
+    throw new Error(
+      (data as { message?: string; pesan?: string }).message ??
+        (data as { pesan?: string }).pesan ??
+        "Request failed",
+    );
   }
 
   return data as T;

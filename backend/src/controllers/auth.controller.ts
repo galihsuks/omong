@@ -10,19 +10,20 @@ export async function signup(req: Request, res: Response) {
   try {
     const hash = await bcrypt.hash(req.body.sandi, 10);
     await User.create({ ...req.body, sandi: hash, timezone: req.body.timezone || "UTC" });
-    return res.status(200).json({ pesan: "Sign up successful. Please log in." });
+    return res.status(200).json({ message: "Sign up successful. Please log in.", data: null });
   } catch (error: any) {
-    if (error?.code === 11000) return res.status(401).json({ pesan: "Email is already in use." });
-    return res.status(500).json({ pesan: error.message });
+    if (error?.code === 11000)
+      return res.status(401).json({ message: "Email is already in use.", data: null });
+    return res.status(500).json({ message: error.message, data: null });
   }
 }
 
 export async function login(req: AuthRequest, res: Response) {
   try {
     const user = await User.findOne({ email: req.body.email });
-    if (!user) return res.status(404).json({ pesan: "User not found." });
+    if (!user) return res.status(404).json({ message: "User not found.", data: null });
     const match = await bcrypt.compare(req.body.sandi, user.sandi);
-    if (!match) return res.status(401).json({ pesan: "Incorrect password." });
+    if (!match) return res.status(401).json({ message: "Incorrect password.", data: null });
 
     const accessToken = jwt.sign({ email: user.email, nama: user.nama, id: user._id }, env.ACCESS_TOKEN_SECRET);
     const ua = (req as any).useragent;
@@ -36,27 +37,30 @@ export async function login(req: AuthRequest, res: Response) {
     });
     await User.findByIdAndUpdate(user._id, { $push: { token: token._id } });
 
-    return res.status(200).json({ email: user.email, nama: user.nama, id: user._id, token: accessToken });
+    return res.status(200).json({
+      message: "Success login",
+      data: { email: user.email, nama: user.nama, id: user._id, token: accessToken },
+    });
   } catch (error: any) {
-    return res.status(500).json({ pesan: error.message });
+    return res.status(500).json({ message: error.message, data: null });
   }
 }
 
 export async function logout(req: AuthRequest, res: Response) {
   try {
-    if (!req.user) return res.status(401).json({ pesan: "Unauthorized" });
+    if (!req.user) return res.status(401).json({ message: "Unauthorized", data: null });
     const user = await User.findOne({ email: req.user.email });
-    if (!user) return res.status(401).json({ pesan: "User not found." });
+    if (!user) return res.status(401).json({ message: "User not found.", data: null });
     const token = await Token.findOne({ content: req.user.token });
-    if (!token) return res.status(401).json({ pesan: "Token not found." });
+    if (!token) return res.status(401).json({ message: "Token not found.", data: null });
 
     await User.findOneAndUpdate(
       { email: req.user.email },
       { $pull: { token: token._id }, $set: { "online.status": false, "online.last": Date.now() } },
     );
     await Token.findByIdAndDelete(token._id);
-    return res.status(200).json({ pesan: "Logged out successfully." });
+    return res.status(200).json({ message: "Logged out successfully.", data: null });
   } catch (error: any) {
-    return res.status(500).json({ pesan: error.message });
+    return res.status(500).json({ message: error.message, data: null });
   }
 }

@@ -27,6 +27,7 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useAuthStore } from "@/store/auth.store";
 import { showToast } from "@/store/toast.store";
 import { useWsStore } from "@/store/ws.store";
+import { useOnlineMembersStore } from "@/store/onlineMembers.store";
 import type { Chat, WsPayload } from "@/types/domain";
 import { formatShortDateTimeByTimeZone } from "@/utils/dateTime";
 
@@ -36,8 +37,8 @@ export function RoomDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
-  const { connect, subscribe, unsubscribe, send, sendOnline, isUserOnline, onlineClients } =
-    useWsStore();
+  const { connect, subscribe, unsubscribe, send, sendOnline } = useWsStore();
+  const { isOnlineById, getLastSeenById, members } = useOnlineMembersStore();
 
   const [message, setMessage] = useState("");
   const [replyTarget, setReplyTarget] = useState<Chat | null>(null);
@@ -189,18 +190,19 @@ export function RoomDetailPage() {
     const friend = roomDetailData.anggota.find((anggota) => anggota._id !== user?.id);
     if (!friend) return "Private chat";
 
-    if (isUserOnline(friend._id)) return "Online";
+    if (isOnlineById(friend._id)) return "Online";
 
-    if (friend.online?.last) {
-      const last = new Date(friend.online.last);
+    const friendLastSeen = getLastSeenById(friend._id);
+    if (friendLastSeen) {
+      const last = new Date(friendLastSeen);
       const formatted = Number.isNaN(last.getTime())
         ? "recently"
-        : formatShortDateTimeByTimeZone(friend.online.last, profileData?.timezone);
+        : formatShortDateTimeByTimeZone(friendLastSeen, profileData?.timezone);
       return `Last seen ${formatted}`;
     }
 
     return "Offline";
-  }, [isUserOnline, profileData?.timezone, roomDetailData, user?.id, onlineClients]);
+  }, [getLastSeenById, isOnlineById, profileData?.timezone, roomDetailData, user?.id, members]);
 
   const memberOptions = useMemo<SelectOption[]>(() => {
     return (searchUsersData ?? []).map((nextUser) => ({

@@ -1,13 +1,12 @@
 import { create } from "zustand";
 import { env } from "@/config/env";
+import { useOnlineMembersStore } from "@/store/onlineMembers.store";
 
 type MessageHandler = (payload: unknown) => void;
 
 type WsStore = {
   ws: WebSocket | null;
   handlers: Record<string, MessageHandler[]>;
-  onlineClients: string[];
-  isUserOnline: (userId?: string | null) => boolean;
   connect: () => void;
   subscribe: (roomId: string, handler: MessageHandler) => void;
   unsubscribe: (roomId: string, handler: MessageHandler) => void;
@@ -18,11 +17,6 @@ type WsStore = {
 export const useWsStore = create<WsStore>((set, get) => ({
   ws: null,
   handlers: {},
-  onlineClients: [],
-  isUserOnline: (userId) => {
-    if (!userId) return false;
-    return get().onlineClients.includes(userId);
-  },
   connect: () => {
     if (get().ws) return;
 
@@ -33,7 +27,7 @@ export const useWsStore = create<WsStore>((set, get) => ({
         const clients = Array.isArray(parsed.data?.clients)
           ? (parsed.data.clients as string[])
           : [];
-        set({ onlineClients: clients });
+        void useOnlineMembersStore.getState().syncFromOnlineIds(clients);
         return;
       }
 
@@ -43,7 +37,7 @@ export const useWsStore = create<WsStore>((set, get) => ({
         (get().handlers[roomId] ?? []).forEach((handler) => handler(payload));
       }
     };
-    ws.onclose = () => set({ ws: null, handlers: {}, onlineClients: [] });
+    ws.onclose = () => set({ ws: null, handlers: {} });
 
     set({ ws });
   },

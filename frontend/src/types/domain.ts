@@ -11,7 +11,6 @@ export type UserProfile = {
   nama: string;
   email: string;
   timezone: string;
-  online?: { status: boolean; last: string | null };
   createdAt: string;
   updatedAt: string;
 };
@@ -20,7 +19,6 @@ export type UserLite = {
   _id: string;
   nama: string;
   email: string;
-  online?: { status: boolean; last: string | null };
 };
 
 export type ChatReply = {
@@ -45,7 +43,7 @@ export type Room = {
   nama: string;
   tipe: "group" | "private";
   chatsUnread: number;
-  online: boolean;
+  online?: boolean;
   anggota: UserLite[];
   lastchat: Chat | null;
   chats?: Chat[];
