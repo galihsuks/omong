@@ -9,9 +9,13 @@ export async function getRoom(req: AuthRequest, res: Response) {
     if (!req.user) return res.status(401).json({ message: "Unauthorized", data: null });
     const page = Math.max(Number(req.query.page ?? 1), 1);
     const limit = Math.min(Math.max(Number(req.query.limit ?? 20), 1), 100);
+    const newestTime = req.query.newest ?? new Date().toISOString();
     const skip = (page - 1) * limit;
 
-    const allRooms = await Room.find({ anggota: { $all: [req.user.id] } })
+    const allRooms = await Room.find({
+      anggota: { $all: [req.user.id] },
+      createdAt: { $lt: newestTime },
+    })
       .sort({ updatedAt: -1 })
       .populate("anggota", "nama email");
     const totalRooms = allRooms.length;
@@ -45,7 +49,7 @@ export async function getRoom(req: AuthRequest, res: Response) {
           nama,
           tipe: r.tipe,
           anggota: r.anggota,
-          lastchat: lastchat
+          lastChat: lastchat
             ? {
                 totalReadersTarget: lastchat.totalReadersTarget ?? 0,
                 _id: lastchat._id,

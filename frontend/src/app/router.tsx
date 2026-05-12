@@ -3,7 +3,6 @@ import type { ReactElement } from "react";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { SignupPage } from "@/pages/auth/SignupPage";
 import { RoomsPage } from "@/pages/rooms/RoomsPage";
-import { RoomDetailPage } from "@/pages/chat/RoomDetailPage";
 import { ProfilePage } from "@/pages/profile/ProfilePage";
 import { useAuthStore } from "@/store/auth.store";
 
@@ -31,14 +30,6 @@ export const router = createBrowserRouter([
     element: (
       <AuthGuard>
         <RoomsPage />
-      </AuthGuard>
-    ),
-  },
-  {
-    path: "/rooms/:id",
-    element: (
-      <AuthGuard>
-        <RoomDetailPage />
       </AuthGuard>
     ),
   },

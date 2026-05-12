@@ -37,7 +37,9 @@ export async function delChat(req: AuthRequest, res: Response) {
   const chat = await Chat.findById(req.params.chat_id);
   if (!chat) return res.status(404).json({ message: "Chat ID not found.", data: null });
   if (String(chat.idPengirim) !== req.user?.id)
-    return res.status(404).json({ message: "You do not have permission to delete this chat.", data: null });
+    return res
+      .status(404)
+      .json({ message: "You do not have permission to delete this chat.", data: null });
   await Chat.findByIdAndDelete(req.params.chat_id);
   return res.status(200).json({ message: "Success delete chat", data: chat });
 }
@@ -52,19 +54,17 @@ export async function seen(req: AuthRequest, res: Response) {
     { idRoom: req.params.room_id, "seenUsers.user": { $ne: req.user?.id } },
     { $push: { seenUsers: { user: req.user?.id, timestamp } } },
   );
-  return res
-    .status(200)
-    .json({
-      message: "Success seen chats",
-      data: {
+  return res.status(200).json({
+    message: "Success seen chats",
+    data: {
       room_id: req.params.room_id,
       chats: chatsUpdated.map((chat) => chat._id),
       addToSeenUsers: {
         user: { _id: req.user?.id, nama: req.user?.nama, email: req.user?.email },
         timestamp,
       },
-      },
-    });
+    },
+  });
 }
 
 export async function getRoomChats(req: AuthRequest, res: Response) {
@@ -73,6 +73,7 @@ export async function getRoomChats(req: AuthRequest, res: Response) {
     const roomId = req.params.room_id;
     const page = Math.max(Number(req.query.page ?? 1), 1);
     const limit = Math.min(Math.max(Number(req.query.limit ?? 20), 1), 100);
+    const newestTime = req.query.newest ?? new Date().toISOString();
     const skip = (page - 1) * limit;
 
     const room = await Room.findById(roomId).populate("anggota", "_id");
@@ -83,8 +84,14 @@ export async function getRoomChats(req: AuthRequest, res: Response) {
       return res.status(403).json({ message: "You do not have access to this room.", data: null });
     }
 
-    const totalChats = await Chat.countDocuments({ idRoom: roomId });
-    const chatsDesc = await Chat.find({ idRoom: roomId })
+    const totalChats = await Chat.countDocuments({
+      idRoom: roomId,
+      createdAt: { $lt: newestTime },
+    });
+    const chatsDesc = await Chat.find({
+      idRoom: roomId,
+      createdAt: { $lt: newestTime },
+    })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)

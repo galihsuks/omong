@@ -6,21 +6,21 @@ import { formatDateTimeByTimeZone, formatTimeByTimeZone } from "@/utils/dateTime
 type Props = {
   chat: Chat;
   isMine: boolean;
-  currentUserId?: string;
+  currentUserName?: string;
   timeZone?: string;
   onReply: (chat: Chat) => void;
   onDelete: (chatId: string) => void;
 };
 
-export function ChatBubble({ chat, isMine, currentUserId, timeZone, onReply, onDelete }: Props) {
+export function ChatBubble({ chat, isMine, currentUserName, timeZone, onReply, onDelete }: Props) {
   const [showReaders, setShowReaders] = useState(false);
   const readers = useMemo(
     () =>
       (chat.seenUsers ?? []).filter((item) => {
-        const readerId = item.user?._id;
-        return Boolean(readerId) && readerId !== currentUserId;
+        const readerName = item.namaUser;
+        return Boolean(readerName) && readerName !== currentUserName;
       }),
-    [chat.seenUsers, currentUserId],
+    [chat.seenUsers, currentUserName],
   );
   const totalReadersTarget = Math.max(chat.totalReadersTarget ?? 0, 0);
   const hasAnyReader = readers.length > 0;
@@ -34,12 +34,12 @@ export function ChatBubble({ chat, isMine, currentUserId, timeZone, onReply, onD
           isMine ? "bg-fuchsia-500/30" : "bg-white/10"
         }`}
       >
-        {!isMine && <p className="mb-1 text-[10px] text-cyan-300">{chat.idPengirim.nama}</p>}
+        {!isMine && <p className="mb-1 text-[10px] text-cyan-300">{chat.pengirim.nama}</p>}
 
-        {chat.idChatReply && (
+        {chat.reply && (
           <div className="mb-2 rounded-md border-l-2 border-indigo-300 bg-black/20 px-2 py-1">
-            <p className="text-[10px] text-indigo-200">{chat.idChatReply.idPengirim.nama}</p>
-            <p className="line-clamp-2 text-xs text-slate-200">{chat.idChatReply.pesan}</p>
+            <p className="text-[10px] text-indigo-200">{chat.reply.namaPengirim}</p>
+            <p className="line-clamp-2 text-xs text-slate-200">{chat.reply.pesan}</p>
           </div>
         )}
 
@@ -79,13 +79,10 @@ export function ChatBubble({ chat, isMine, currentUserId, timeZone, onReply, onD
               <p className="text-[10px] text-slate-300">No one has read this message yet.</p>
             ) : (
               <div className="space-y-1">
-                {readers.map((item) => (
-                  <div
-                    key={`${item.user._id}-${item.timestamp}`}
-                    className="flex items-center gap-2"
-                  >
+                {readers.map((item, ind_item) => (
+                  <div key={ind_item} className="flex items-center gap-2">
                     <p className="truncate text-[10px] font-semibold text-cyan-200">
-                      {item.user.nama}
+                      {item.namaUser}
                     </p>
                     <p className="truncate text-[10px] text-slate-300">
                       {formatDateTimeByTimeZone(item.timestamp, timeZone)}

@@ -3,28 +3,12 @@ import {
   addMembersToRoomApi,
   createRoomApi,
   exitRoomApi,
-  getRoomByIdApi,
-  getRoomsApi,
+  getRoomsPageApi,
   joinRoomApi,
   searchRoomMemberCandidatesApi,
   searchUsersApi,
   updateRoomApi,
 } from "@/api/room.api";
-
-export function useRoomsQuery(keywords?: string) {
-  return useQuery({
-    queryKey: ["rooms", keywords ?? ""],
-    queryFn: () => getRoomsApi(keywords),
-  });
-}
-
-export function useRoomDetailQuery(roomId?: string) {
-  return useQuery({
-    queryKey: ["room", roomId],
-    queryFn: () => getRoomByIdApi(roomId!),
-    enabled: Boolean(roomId),
-  });
-}
 
 export function useCreateRoomMutation() {
   return useMutation({ mutationFn: createRoomApi });
@@ -65,5 +49,12 @@ export function useRoomMemberCandidatesQuery(roomId: string, value: string) {
     queryKey: ["room-member-candidates", roomId, value],
     queryFn: () => searchRoomMemberCandidatesApi(roomId, value),
     enabled: Boolean(roomId) && value.trim().length > 1,
+  });
+}
+
+export function useRoomPageQuery(page: number, limit: number, newestTime?: string) {
+  return useQuery({
+    queryKey: ["rooms-page", page],
+    queryFn: () => getRoomsPageApi(page, limit, newestTime),
   });
 }

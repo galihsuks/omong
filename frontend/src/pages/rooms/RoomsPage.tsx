@@ -1,81 +1,40 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Pencil, Users, Search, X } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { BottomNav } from "@/components/common/BottomNav";
+import { RoomDetailPage } from "@/pages/chat/RoomDetailPage";
 import { useAuthStore } from "@/store/auth.store";
+import { useRoomsMainStore } from "@/store/roomsMain.store";
 import { useWsStore } from "@/store/ws.store";
 import { useOnlineMembersStore } from "@/store/onlineMembers.store";
-import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { RoomListItem } from "@/components/rooms/RoomListItem";
-import { BottomNav } from "@/components/common/BottomNav";
-import { ModalTemplate } from "@/components/common/ModalTemplate";
-import { InputField } from "@/components/forms/InputField";
-import { SearchSelect, type SelectOption } from "@/components/forms/SearchSelect";
-import { useCreateRoomMutation, useRoomsQuery, useUserSearchQuery } from "@/hooks/useRooms";
-import { useMyProfileQuery } from "@/hooks/useUser";
-import type { Room, WsPayload } from "@/types/domain";
-import { showToast } from "@/store/toast.store";
+import { useRoomPageQuery } from "@/hooks/useRooms";
+import { ROOM_LIST_LIMIT } from "@/config/constants";
 
 export function RoomsPage() {
   const user = useAuthStore((state) => state.user);
-  const queryClient = useQueryClient();
-  const { connect, subscribe, unsubscribe, sendOnline } = useWsStore();
-  const { isOnlineById, members } = useOnlineMembersStore();
-
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const [searchKeyword, setSearchKeyword] = useState("");
-  const debouncedKeyword = useDebouncedValue(searchKeyword, 400);
-
   const {
-    data: roomsData,
-    isPending: isRoomsPending,
-    error: roomsError,
-  } = useRoomsQuery(debouncedKeyword);
-  const { data: profileData } = useMyProfileQuery();
-  const { mutate: createRoom, isPending: isCreateRoomPending } = useCreateRoomMutation();
+    totalRooms,
+    rooms,
+    page,
+    nextPage,
+    activeRoomId,
+    fetchNextRooms,
+    setActiveRoomId,
+    firstTimestampRenderRooms,
+  } = useRoomsMainStore();
+  const { connect, sendOnline } = useWsStore();
+  const { isOnlineById, members: membersOnline } = useOnlineMembersStore();
+  const listSentinelRef = useRef<HTMLDivElement | null>(null);
 
-  const [typingByRoom, setTypingByRoom] = useState<Record<string, string[]>>({});
-  const [showCreate, setShowCreate] = useState(false);
-
-  const [createForm, setCreateForm] = useState({
-    tipe: "group" as "group" | "private",
-    nama: "",
-    keyword: "",
-    selectedEmails: [] as string[],
-    selectedEmailValue: "",
-  });
-  const debouncedCreateMemberKeyword = useDebouncedValue(createForm.keyword, 400);
-  const { data: searchUsersData, isPending: isSearchUsersPending } = useUserSearchQuery(
-    "email",
-    debouncedCreateMemberKeyword,
+  const { data: roomsData, isPending: isRoomsPending } = useRoomPageQuery(
+    page,
+    ROOM_LIST_LIMIT,
+    firstTimestampRenderRooms,
   );
+
+  const [isOnlineById_Trigger, setIsOnlineById_Trigger] = useState(false);
 
   useEffect(() => {
-    if (!isSearchOpen) return;
-    const id = window.setTimeout(() => searchInputRef.current?.focus(), 0);
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsSearchOpen(false);
-        setSearchKeyword("");
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.clearTimeout(id);
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [isSearchOpen]);
-  const memberOptions = useMemo<SelectOption[]>(
-    () =>
-      (searchUsersData ?? []).map((userData) => ({
-        label: userData.nama,
-        value: userData.email,
-        meta: userData.email,
-      })),
-    [searchUsersData],
-  );
+    if (roomsData) fetchNextRooms(roomsData);
+  }, [roomsData]);
 
   useEffect(() => {
     connect();
@@ -83,263 +42,123 @@ export function RoomsPage() {
   }, [connect, sendOnline, user?.id]);
 
   useEffect(() => {
-    if (!roomsData?.length) return;
+    const node = listSentinelRef.current;
+    if (!node) return;
 
-    const handlers: Array<{ roomId: string; handler: (payload: unknown) => void }> = [];
-
-    roomsData.forEach((room) => {
-      const handler = (payload: unknown) => {
-        const data = payload as WsPayload;
-
-        if (data.event === "typing" && data.roomId === room._id) {
-          setTypingByRoom((prev) => {
-            const current = prev[room._id] ?? [];
-            const next = data.status
-              ? current.includes(data.userName)
-                ? current
-                : [...current, data.userName]
-              : current.filter((name) => name !== data.userName);
-            return { ...prev, [room._id]: next };
-          });
-          return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          void nextPage();
         }
+      },
+      { threshold: 0.1 },
+    );
 
-        if (data.event === "chat" && data.roomId === room._id) {
-          queryClient.setQueryData(["rooms", debouncedKeyword ?? ""], (old: Room[] | undefined) => {
-            if (!old) return old;
-            return old.map((r) => {
-              if (r._id !== room._id) return r;
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [rooms]);
 
-              if (data.action === "add") {
-                const unreadInc = data.chat.idPengirim._id === user?.id ? 0 : 1;
-                return {
-                  ...r,
-                  lastchat: data.chat,
-                  chatsUnread: (r.chatsUnread ?? 0) + unreadInc,
-                };
-              }
-
-              if (data.action === "delete") {
-                return {
-                  ...r,
-                  chatsUnread: Math.max((r.chatsUnread ?? 0) - 1, 0),
-                };
-              }
-
-              return r;
-            });
-          });
-          return;
-        }
-      };
-
-      handlers.push({ roomId: room._id, handler });
-      subscribe(room._id, handler);
-    });
-
-    return () => {
-      handlers.forEach(({ roomId, handler }) => unsubscribe(roomId, handler));
-    };
-  }, [roomsData, queryClient, subscribe, unsubscribe, user?.id, debouncedKeyword]);
-
-  const mergedRooms = useMemo(
-    () =>
-      (roomsData ?? []).map((room) => ({
-        ...room,
-        online:
-          room.tipe === "private"
-            ? room.anggota.some((anggota) => {
-                return anggota._id !== user?.id && isOnlineById(anggota._id);
-              })
-            : false,
-        typingNames: typingByRoom[room._id] ?? [],
-      })),
-    [isOnlineById, roomsData, typingByRoom, user?.id, members],
+  const activeRoom = useMemo(
+    () => (activeRoomId ? (rooms.find((room) => room._id === activeRoomId) ?? null) : null),
+    [activeRoomId, rooms],
   );
 
-  const handleCreateRoom = () => {
-    const payload = {
-      tipe: createForm.tipe,
-      nama: createForm.tipe === "group" ? createForm.nama : undefined,
-      anggota: createForm.selectedEmails,
-    };
+  useEffect(() => {
+    setIsOnlineById_Trigger((prev) => !prev);
+  }, [membersOnline]);
 
-    createRoom(payload, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["rooms"] });
-        setShowCreate(false);
-        setCreateForm({
-          tipe: "group",
-          nama: "",
-          keyword: "",
-          selectedEmails: [],
-          selectedEmailValue: "",
-        });
-        showToast("success", "Room created successfully.");
-      },
-      onError: (error) => showToast("error", (error as Error).message),
-    });
-  };
+  useEffect(() => {
+    console.log(`active room ID ${activeRoomId}`);
+    console.log(rooms);
+  }, [rooms]);
+
+  useEffect(() => {
+    console.log("ini active room");
+    console.log(activeRoom);
+  }, [activeRoom]);
 
   return (
-    <main className="h-screen bg-gradient-to-tr from-indigo-950 via-purple-950 to-fuchsia-900 text-white">
-      <section className="mx-auto flex h-full w-full max-w-3xl flex-col">
-        <header className="px-6 pt-4">
-          <div className="w-full pb-4 border-b border-white/10">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-base font-semibold text-white">Omong Rooms</h1>
-                <p className="text-xs text-slate-300">{user?.nama}</p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  className="rounded-lg bg-white/10 p-2 text-slate-100 hover:bg-white/20"
-                  onClick={() => setShowCreate(true)}
-                >
-                  <Plus size={16} />
-                </button>
-                {!isSearchOpen && (
+    <main className="w-full h-screen bg-gradient-to-tr from-indigo-950 via-purple-950 to-fuchsia-900 text-white">
+      <section className="mx-auto flex h-full w-full max-w-[1200px]">
+        <aside className="w-full border-r border-white/10 md:w-[380px] flex flex-col">
+          <header className="border-b border-white/10 px-6 py-4">
+            <h1 className="text-base font-semibold">Omong Rooms</h1>
+            <p className="text-xs text-slate-300">{user?.nama}</p>
+          </header>
+
+          <div className="flex-1 overflow-y-auto px-4 py-3">
+            {isRoomsPending && page === 1 && (
+              <p className="text-sm text-slate-300">Loading rooms...</p>
+            )}
+
+            <div className="space-y-2">
+              {rooms.map((room) => {
+                const privateFriend =
+                  room.tipe === "private"
+                    ? room.anggota.find((anggota) => anggota._id !== user?.id)
+                    : null;
+                const isOnline = privateFriend ? isOnlineById(privateFriend._id) : false;
+
+                return (
                   <button
-                    className="rounded-lg bg-white/10 p-2 text-slate-100 hover:bg-white/20"
-                    onClick={() => setIsSearchOpen(true)}
+                    key={room._id}
+                    className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${
+                      activeRoomId === room._id
+                        ? "border-cyan-300/70 bg-cyan-400/10"
+                        : "border-white/10 bg-white/5 hover:bg-white/10"
+                    }`}
+                    onClick={() => setActiveRoomId(room._id)}
                   >
-                    <Search size={16} />
+                    <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-indigo-600/50 text-sm font-bold">
+                      {room.nama.slice(0, 2).toUpperCase()}
+                      {room.tipe === "private" && isOnline && (
+                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-slate-900 bg-green-400" />
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold">{room.nama}</p>
+                      <p className="truncate text-xs text-slate-300">
+                        {room.lastchat?.pesan ?? "No messages yet"}
+                      </p>
+                    </div>
+
+                    {room.unread > 0 && (
+                      <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-pink-400 px-1.5 text-[10px] font-semibold text-slate-900">
+                        {room.unread}
+                      </span>
+                    )}
                   </button>
-                )}
-              </div>
+                );
+              })}
             </div>
-            {isSearchOpen && (
-              <div className="flex items-center gap-2 pt-3 mt-4 border-t border-white/10">
-                <InputField
-                  ref={searchInputRef}
-                  leftIcon={<Search size={16} />}
-                  value={searchKeyword}
-                  onChange={(e) => setSearchKeyword(e.target.value)}
-                  placeholder="Search rooms..."
-                />
-                <button
-                  className="rounded-lg bg-white/10 p-2 text-slate-100 hover:bg-white/20"
-                  onClick={() => {
-                    setIsSearchOpen(false);
-                    setSearchKeyword("");
-                  }}
-                >
-                  <X size={16} />
-                </button>
+
+            {rooms.length > 0 && rooms.length < totalRooms && (
+              <div ref={listSentinelRef} className="py-2">
+                {isRoomsPending && page > 1 && (
+                  <p className="text-xs text-slate-300">Loading more rooms...</p>
+                )}
               </div>
             )}
           </div>
-        </header>
 
-        <div className="flex-1 overflow-y-auto py-3 px-6">
-          {isRoomsPending && <p className="text-sm text-slate-200">Loading rooms...</p>}
-          {roomsError && <p className="text-sm text-rose-300">{(roomsError as Error).message}</p>}
+          <BottomNav />
+        </aside>
 
-          <div className="space-y-2">
-            {mergedRooms.map((room) => (
-              <RoomListItem
-                key={room._id}
-                room={room}
-                currentUserId={user?.id ?? ""}
-                timeZone={profileData?.timezone}
-              />
-            ))}
-          </div>
-        </div>
-
-        <BottomNav />
-      </section>
-
-      <ModalTemplate
-        open={showCreate}
-        onClose={() => setShowCreate(false)}
-        title="Create Room"
-        maxWidthClassName="max-w-lg"
-      >
-        <div className="space-y-3">
-          <SearchSelect
-            label="Room Type"
-            leftIcon={<Users size={16} />}
-            value={createForm.tipe}
-            options={[
-              { label: "Group", value: "group" },
-              { label: "Private", value: "private" },
-            ]}
-            onChange={(nextType) =>
-              setCreateForm((prev) => ({ ...prev, tipe: nextType as "group" | "private" }))
-            }
-            searchValue=""
-            onSearchChange={() => undefined}
-            searchPlaceholder="Room type"
-            emptyText=""
-            loading={false}
-          />
-
-          {createForm.tipe === "group" && (
-            <InputField
-              label="Room Name"
-              leftIcon={<Pencil size={16} />}
-              value={createForm.nama}
-              onChange={(event) => setCreateForm((prev) => ({ ...prev, nama: event.target.value }))}
-              placeholder="Room name"
+        <section className="hidden flex-1 flex-col md:flex">
+          {activeRoom ? (
+            <RoomDetailPage
+              embedded
+              onExitRoom={() => setActiveRoomId(null)}
+              roomDetailData={activeRoom}
             />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-sm text-slate-300">Select a room to open chat.</p>
+            </div>
           )}
-
-          <SearchSelect
-            label="Invite Member"
-            leftIcon={<Search size={16} />}
-            value={createForm.selectedEmailValue}
-            options={memberOptions}
-            onChange={(selectedEmail) => {
-              setCreateForm((prev) => ({
-                ...prev,
-                selectedEmailValue: selectedEmail,
-                selectedEmails: prev.selectedEmails.includes(selectedEmail)
-                  ? prev.selectedEmails
-                  : [...prev.selectedEmails, selectedEmail],
-              }));
-            }}
-            searchValue={createForm.keyword}
-            onSearchChange={(keyword) => setCreateForm((prev) => ({ ...prev, keyword }))}
-            searchPlaceholder="Type email keyword"
-            emptyText="No users"
-            loading={isSearchUsersPending}
-          />
-
-          <div className="flex flex-wrap gap-1">
-            {createForm.selectedEmails.map((email) => (
-              <button
-                key={email}
-                className="rounded-full bg-cyan-300/20 px-2 py-0.5 text-[11px]"
-                onClick={() =>
-                  setCreateForm((prev) => ({
-                    ...prev,
-                    selectedEmails: prev.selectedEmails.filter((item) => item !== email),
-                  }))
-                }
-              >
-                {email}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <button
-              className="rounded bg-white/10 px-3 py-1 text-xs"
-              onClick={() => setShowCreate(false)}
-            >
-              Cancel
-            </button>
-            <button
-              className="rounded bg-cyan-400 px-3 py-1 text-xs font-semibold text-slate-900 disabled:opacity-60"
-              disabled={isCreateRoomPending || createForm.selectedEmails.length === 0}
-              onClick={handleCreateRoom}
-            >
-              Create
-            </button>
-          </div>
-        </div>
-      </ModalTemplate>
+        </section>
+      </section>
     </main>
   );
 }

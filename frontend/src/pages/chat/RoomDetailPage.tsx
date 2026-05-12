@@ -14,12 +14,12 @@ import {
   useAddMembersToRoomMutation,
   useExitRoomMutation,
   useRoomMemberCandidatesQuery,
-  useRoomDetailQuery,
   useUpdateRoomMutation,
 } from "@/hooks/useRooms";
 import { useMyProfileQuery } from "@/hooks/useUser";
 import {
   useAddChatMutation,
+  useChatPageQuery,
   useDeleteChatMutation,
   useSeenRoomMutation,
 } from "@/hooks/useChatMutations";
@@ -30,13 +30,57 @@ import { useWsStore } from "@/store/ws.store";
 import { useOnlineMembersStore } from "@/store/onlineMembers.store";
 import type { Chat, WsPayload } from "@/types/domain";
 import { formatShortDateTimeByTimeZone } from "@/utils/dateTime";
+import { useRoomsMainStore } from "@/store/roomsMain.store";
+import { ROOM_CHAT_LIMIT } from "@/config/constants";
 
-export function RoomDetailPage() {
-  const { id } = useParams();
-  const roomId = id ?? "";
+type RoomChatItem = {
+  totalReadersTarget: number;
+  _id: string;
+  pesan: string;
+  pengirim: { _id: string; email: string; nama: string };
+  reply: null | { _id: string; pesan: string; namaPengirim: string };
+  isPending: boolean;
+  seenUsers: Array<{ timestamp: string; namaUser: string }>;
+  createdAt: string;
+};
+
+type RoomMainItem = {
+  _id: string;
+  nama: string;
+  tipe: "private" | "group";
+  anggota: Array<{ _id: string; email: string; nama: string }>;
+  lastchat: null | {
+    totalReadersTarget: number;
+    _id: string;
+    pesan: string;
+    namaPengirim: string;
+    seenUsers: number;
+  };
+  updatedAt: string;
+  unread: number;
+  typing: string[];
+  page: number;
+  newestTime: string;
+  totalChats?: number;
+  chats?: RoomChatItem[];
+};
+
+type RoomDetailPageProps = {
+  embedded?: boolean;
+  onExitRoom?: () => void;
+  roomDetailData: RoomMainItem;
+};
+
+export function RoomDetailPage({
+  embedded = false,
+  onExitRoom,
+  roomDetailData,
+}: RoomDetailPageProps) {
+  const roomId = roomDetailData._id;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
+  const { setActiveRoomId, fetchRoomChatsPage, nextPage } = useRoomsMainStore();
   const { connect, subscribe, unsubscribe, send, sendOnline } = useWsStore();
   const { isOnlineById, getLastSeenById, members } = useOnlineMembersStore();
 
@@ -60,12 +104,14 @@ export function RoomDetailPage() {
   const typingTimeoutRef = useRef<number | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const messageInputRef = useRef<HTMLInputElement | null>(null);
+  const listSentinelRef = useRef<HTMLDivElement | null>(null);
 
-  const {
-    data: roomDetailData,
-    isPending: isRoomPending,
-    error: roomError,
-  } = useRoomDetailQuery(roomId);
+  const { data: chatsData, isPending: isChatsPending } = useChatPageQuery(
+    roomId,
+    roomDetailData.page,
+    ROOM_CHAT_LIMIT,
+    roomDetailData.newestTime,
+  );
   const { mutate: addChat, isPending: isAddChatPending } = useAddChatMutation(roomId);
   const { mutate: deleteChat } = useDeleteChatMutation();
   const { mutate: markRoomSeen } = useSeenRoomMutation(roomId);
@@ -78,6 +124,10 @@ export function RoomDetailPage() {
     roomId,
     debouncedMemberKeyword,
   );
+
+  useEffect(() => {
+    if (chatsData) fetchRoomChatsPage(roomId, chatsData);
+  }, [chatsData]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -171,6 +221,7 @@ export function RoomDetailPage() {
   }, [message, roomId, send, user?.nama]);
 
   const chats = useMemo(() => roomDetailData?.chats ?? [], [roomDetailData?.chats]);
+  const totalChats = useMemo(() => roomDetailData?.totalChats ?? 0, [roomDetailData?.totalChats]);
 
   const roomDisplayName = useMemo(() => {
     if (!roomDetailData) return "Room";
@@ -228,6 +279,23 @@ export function RoomDetailPage() {
     if (showMenu) window.addEventListener("mousedown", onClickOutside);
     return () => window.removeEventListener("mousedown", onClickOutside);
   }, [showMenu]);
+
+  useEffect(() => {
+    const node = listSentinelRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          void nextPage(roomId);
+        }
+      },
+      { threshold: 0.1 },
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [roomDetailData.chats]);
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -288,7 +356,11 @@ export function RoomDetailPage() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["rooms"] });
         showToast("warning", "You left the room.");
-        navigate("/rooms", { replace: true });
+        if (onExitRoom) {
+          onExitRoom();
+        } else {
+          navigate("/rooms", { replace: true });
+        }
       },
       onError: (error) => showToast("error", (error as Error).message),
     });
@@ -369,8 +441,12 @@ export function RoomDetailPage() {
         : "";
 
   return (
-    <main className="h-screen bg-gradient-to-tr from-indigo-950 via-purple-950 to-fuchsia-900 text-white">
-      <section className="mx-auto flex h-full w-ful max-w-3xl flex-col">
+    <main
+      className={`${embedded ? "h-full" : "h-screen"} bg-gradient-to-tr from-indigo-950 via-purple-950 to-fuchsia-900 text-white`}
+    >
+      <section
+        className={`${embedded ? "h-full w-full" : "mx-auto h-full w-ful max-w-3xl"} flex flex-col`}
+      >
         <RoomDetailHeader
           title={roomDisplayName}
           subtitle={roomSubtitle}
@@ -392,15 +468,19 @@ export function RoomDetailPage() {
         />
 
         <div ref={chatContainerRef} className="flex-1 space-y-2 overflow-y-auto px-6 py-4">
-          {isRoomPending && <p className="text-sm text-slate-200">Loading...</p>}
-          {roomError && <p className="text-sm text-rose-300">{(roomError as Error).message}</p>}
-
+          {chats.length > 0 && chats.length < totalChats && (
+            <div ref={listSentinelRef} className="py-2">
+              {isChatsPending && roomDetailData.page > 1 && (
+                <p className="text-xs text-slate-300">Loading more chats...</p>
+              )}
+            </div>
+          )}
           {chats.map((chat) => (
             <ChatBubble
               key={chat._id}
               chat={chat}
-              isMine={chat.idPengirim._id === user?.id}
-              currentUserId={user?.id}
+              isMine={chat.pengirim._id === user?.id}
+              currentUserName={user?.nama}
               timeZone={profileData?.timezone}
               onReply={handleReply}
               onDelete={handleDelete}
@@ -422,7 +502,7 @@ export function RoomDetailPage() {
                 onClick={() => setReplyTarget(null)}
                 className="mb-2 w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-left"
               >
-                <p className="text-[10px] text-pink-300">Reply to {replyTarget.idPengirim.nama}</p>
+                <p className="text-[10px] text-pink-300">Reply to {replyTarget.pengirim.nama}</p>
                 <p className="truncate text-xs text-slate-200">{replyTarget.pesan}</p>
                 <p className="mt-1 text-[10px] text-slate-400">Tap to remove</p>
               </button>

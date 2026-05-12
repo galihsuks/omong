@@ -1,25 +1,30 @@
 import { apiClient } from "@/api/client";
 import type { Room, UserLite } from "@/types/domain";
 
-export function getRoomsApi(keywords?: string) {
+export type RoomsPageResponse = {
+  totalRooms: number;
+  page: number;
+  rooms: Room[];
+};
+
+export function getRoomsPageApi(page: number, limit: number, newestTime?: string) {
   const params = new URLSearchParams();
-  params.set("page", "1");
-  params.set("limit", "20");
-  if (keywords?.trim()) params.set("keywords", keywords.trim());
+  params.set("page", String(page));
+  params.set("limit", String(limit));
+  if (newestTime) {
+    params.set("newest", String(newestTime));
+  }
   const qs = params.toString();
-  return apiClient<{ message: string; data: { totalRooms: number; page: number; rooms: Room[] } }>(
-    `/room${qs ? `?${qs}` : ""}`,
-  ).then((res) => res.data.rooms);
+  return apiClient<{ message: string; data: RoomsPageResponse }>(`/room?${qs}`).then(
+    (res) => res.data,
+  );
 }
 
-export async function getRoomByIdApi(roomId: string) {
-  const rooms = await getRoomsApi();
-  const room = rooms.find((item) => item._id === roomId);
-  if (!room) throw new Error("Room not found.");
-  return room;
-}
-
-export function createRoomApi(payload: { nama?: string; tipe: "group" | "private"; anggota: string[] }) {
+export function createRoomApi(payload: {
+  nama?: string;
+  tipe: "group" | "private";
+  anggota: string[];
+}) {
   return apiClient<{ message: string; data: Room }>("/room", {
     method: "POST",
     body: JSON.stringify(payload),
