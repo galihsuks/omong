@@ -81,7 +81,7 @@ export function RoomDetailPage({
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const { fetchRoomChatsPage, nextPage, handleRealtimePayload } = useRoomsMainStore();
-  const { connect, send, sendOnline } = useWsStore();
+  const { send } = useWsStore();
   const { isOnlineById, getLastSeenById, members } = useOnlineMembersStore();
 
   const [message, setMessage] = useState("");
@@ -128,12 +128,6 @@ export function RoomDetailPage({
   useEffect(() => {
     if (chatsData) fetchRoomChatsPage(roomId, chatsData);
   }, [chatsData]);
-
-  useEffect(() => {
-    if (!roomId) return;
-    connect();
-    if (user?.id) sendOnline(user.id);
-  }, [connect, roomId, sendOnline, user?.id]);
 
   useEffect(() => {
     if (!roomId) return;
