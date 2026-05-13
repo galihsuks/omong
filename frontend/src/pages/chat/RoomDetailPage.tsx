@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Send } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AddMembersModal } from "@/components/chat/AddMembersModal";
@@ -28,7 +28,7 @@ import { useAuthStore } from "@/store/auth.store";
 import { showToast } from "@/store/toast.store";
 import { useWsStore } from "@/store/ws.store";
 import { useOnlineMembersStore } from "@/store/onlineMembers.store";
-import type { Chat, WsPayload } from "@/types/domain";
+import type { Chat } from "@/types/domain";
 import { formatShortDateTimeByTimeZone } from "@/utils/dateTime";
 import { useRoomsMainStore } from "@/store/roomsMain.store";
 import { ROOM_CHAT_LIMIT } from "@/config/constants";
@@ -80,13 +80,12 @@ export function RoomDetailPage({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
-  const { setActiveRoomId, fetchRoomChatsPage, nextPage } = useRoomsMainStore();
-  const { connect, subscribe, unsubscribe, send, sendOnline } = useWsStore();
+  const { fetchRoomChatsPage, nextPage, handleRealtimePayload } = useRoomsMainStore();
+  const { connect, send, sendOnline } = useWsStore();
   const { isOnlineById, getLastSeenById, members } = useOnlineMembersStore();
 
   const [message, setMessage] = useState("");
   const [replyTarget, setReplyTarget] = useState<Chat | null>(null);
-  const [typingNames, setTypingNames] = useState<string[]>([]);
   const [showMembers, setShowMembers] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -101,10 +100,11 @@ export function RoomDetailPage({
   const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const typingTimeoutRef = useRef<number | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const messageInputRef = useRef<HTMLInputElement | null>(null);
   const listSentinelRef = useRef<HTMLDivElement | null>(null);
+  const shouldAutoScrollRef = useRef(true);
+  const mySelfTyping = useRef(false);
 
   const { data: chatsData, isPending: isChatsPending } = useChatPageQuery(
     roomId,
@@ -133,67 +133,23 @@ export function RoomDetailPage({
     if (!roomId) return;
     connect();
     if (user?.id) sendOnline(user.id);
-
-    const handler = (payload: unknown) => {
-      const data = payload as WsPayload;
-
-      if (data.event === "typing" && data.roomId === roomId) {
-        if (data.userName === user?.nama) return;
-        setTypingNames((prev) => {
-          if (data.status) return prev.includes(data.userName) ? prev : [...prev, data.userName];
-          return prev.filter((name) => name !== data.userName);
-        });
-        return;
-      }
-
-      if (data.event !== "chat" || data.roomId !== roomId) return;
-
-      if (data.action === "add") {
-        queryClient.setQueryData(["room", roomId], (old: any) => {
-          const chats = old?.chats ?? [];
-          if (chats.some((c: Chat) => c._id === data.chat._id)) return old;
-          return { ...old, chats: [...chats, data.chat] };
-        });
-        return;
-      }
-
-      if (data.action === "delete") {
-        queryClient.setQueryData(["room", roomId], (old: any) => ({
-          ...old,
-          chats: (old?.chats ?? []).filter((c: Chat) => c._id !== data.chatId),
-        }));
-        return;
-      }
-
-      if (data.action === "seen") {
-        queryClient.setQueryData(["room", roomId], (old: any) => ({
-          ...old,
-          chats: (old?.chats ?? []).map((chat: Chat) =>
-            data.chatIds.includes(chat._id)
-              ? {
-                  ...chat,
-                  seenUsers: [
-                    ...chat.seenUsers,
-                    {
-                      user: data.seenUser.user,
-                      timestamp: new Date(data.seenUser.timestamp).toISOString(),
-                    },
-                  ],
-                }
-              : chat,
-          ),
-        }));
-      }
-    };
-
-    subscribe(roomId, handler);
-    return () => unsubscribe(roomId, handler);
-  }, [connect, queryClient, roomId, sendOnline, subscribe, unsubscribe, user?.id, user?.nama]);
+  }, [connect, roomId, sendOnline, user?.id]);
 
   useEffect(() => {
     if (!roomId) return;
     markRoomSeen(undefined, {
       onSuccess: (result) => {
+        handleRealtimePayload(
+          roomId,
+          {
+            event: "chat",
+            action: "seen",
+            roomId,
+            chatIds: result.chats,
+            seenUser: result.addToSeenUsers,
+          },
+          user?.nama,
+        );
         send(roomId, {
           event: "chat",
           action: "seen",
@@ -203,19 +159,16 @@ export function RoomDetailPage({
         });
       },
     });
-  }, [markRoomSeen, roomId, send]);
+  }, [handleRealtimePayload, markRoomSeen, roomId, send, user?.nama]);
 
   useEffect(() => {
     if (!roomId || !user?.nama) return;
-
-    if (message.trim()) {
+    if (message) {
+      if (mySelfTyping.current) return;
+      mySelfTyping.current = true;
       send(roomId, { event: "typing", roomId, userName: user.nama, status: true });
-
-      if (typingTimeoutRef.current) window.clearTimeout(typingTimeoutRef.current);
-      typingTimeoutRef.current = window.setTimeout(() => {
-        send(roomId, { event: "typing", roomId, userName: user.nama, status: false });
-      }, 2000);
     } else {
+      mySelfTyping.current = false;
       send(roomId, { event: "typing", roomId, userName: user.nama, status: false });
     }
   }, [message, roomId, send, user?.nama]);
@@ -263,9 +216,26 @@ export function RoomDetailPage({
     }));
   }, [searchUsersData]);
 
+  useEffect(() => {
+    const container = chatContainerRef.current;
+    if (!container) return;
+
+    const threshold = 24;
+    const updateAutoScrollFlag = () => {
+      const distanceFromBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      shouldAutoScrollRef.current = distanceFromBottom <= threshold;
+    };
+
+    updateAutoScrollFlag();
+    container.addEventListener("scroll", updateAutoScrollFlag);
+    return () => container.removeEventListener("scroll", updateAutoScrollFlag);
+  }, [roomId]);
+
   useLayoutEffect(() => {
     const container = chatContainerRef.current;
     if (!container) return;
+    if (!shouldAutoScrollRef.current) return;
     container.scrollTop = container.scrollHeight;
   }, [roomId, chats.length]);
 
@@ -306,11 +276,11 @@ export function RoomDetailPage({
       { pesan: text, idChatReply: replyTarget?._id ?? null },
       {
         onSuccess: (chat) => {
-          queryClient.setQueryData(["room", roomId], (old: any) => ({
-            ...old,
-            chats: [...(old?.chats ?? []), chat],
-          }));
+          console.log(chat);
+          console.log(user);
+          handleRealtimePayload(roomId, { event: "chat", action: "add", roomId, chat }, user?.nama);
 
+          send(roomId, { event: "typing", roomId, userName: user?.nama, status: false });
           send(roomId, { event: "chat", action: "add", roomId, chat });
 
           setMessage("");
@@ -323,10 +293,7 @@ export function RoomDetailPage({
   const handleDelete = (chatId: string) => {
     deleteChat(chatId, {
       onSuccess: () => {
-        queryClient.setQueryData(["room", roomId], (old: any) => ({
-          ...old,
-          chats: (old?.chats ?? []).filter((c: Chat) => c._id !== chatId),
-        }));
+        handleRealtimePayload(roomId, { event: "chat", action: "delete", roomId, chatId });
 
         send(roomId, { event: "chat", action: "delete", roomId, chatId });
       },
@@ -433,6 +400,7 @@ export function RoomDetailPage({
     }, 0);
   };
 
+  const typingNames = roomDetailData.typing.filter((name) => name !== user?.nama);
   const typingLabel =
     typingNames.length > 1
       ? `${typingNames.length} people typing`

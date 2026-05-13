@@ -37,6 +37,7 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(function
       <div className="group flex items-center gap-2 border-b border-white/90 bg-transparent px-1 py-2 focus-within:border-white">
         {leftIcon && <span className="text-slate-200">{leftIcon}</span>}
         <input
+          spellCheck={false}
           ref={ref}
           id={inputId}
           type={renderedType}

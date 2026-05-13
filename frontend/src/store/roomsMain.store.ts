@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { getRoomChatsPageApi, RoomChatsPageResponse } from "@/api/chat.api";
 import { getRoomsPageApi, RoomsPageResponse } from "@/api/room.api";
 import { ROOM_CHAT_LIMIT, ROOM_LIST_LIMIT } from "@/config/constants";
+import type { WsPayload } from "@/types/domain";
 
 type RoomChatItem = {
   totalReadersTarget: number;
@@ -62,6 +63,7 @@ type RoomsMainState = {
   fetchNextRooms: (result: RoomsPageResponse) => Promise<void>;
   setActiveRoomId: (roomId: string | null) => void;
   fetchRoomChatsPage: (roomId: string, result: RoomChatsPageResponse) => Promise<void>;
+  handleRealtimePayload: (roomId: string, payload: WsPayload, currentUserName?: string) => void;
 };
 
 function mergeRooms(prev: RoomMainItem[], next: RoomMainItem[]) {
@@ -133,6 +135,91 @@ export const useRoomsMainStore = create<RoomsMainState>((set, get) => ({
           chats: unique,
         };
       }),
+    });
+  },
+  handleRealtimePayload: (roomId, payload, currentUserName) => {
+    set({
+      rooms: get().rooms
+        .map((room) => {
+          if (room._id !== roomId) return room;
+
+          if (payload.event === "typing") {
+            if (!payload.userName || payload.userName === currentUserName) return room;
+            const currentTyping = room.typing ?? [];
+            return {
+              ...room,
+              typing: payload.status
+                ? Array.from(new Set([...currentTyping, payload.userName]))
+                : currentTyping.filter((name) => name !== payload.userName),
+            };
+          }
+
+          if (payload.event !== "chat") return room;
+
+          if (payload.action === "add") {
+            const currentChats = room.chats ?? [];
+            if (currentChats.some((chat) => chat._id === payload.chat._id)) return room;
+
+            const nextUnread =
+              payload.chat.pengirim?.nama &&
+              currentUserName &&
+              payload.chat.pengirim.nama !== currentUserName
+                ? room.unread + 1
+                : room.unread;
+            const nextChats = normalizeChats([...currentChats, payload.chat as RoomChatItem]);
+
+            return {
+              ...room,
+              chats: nextChats,
+              unread: nextUnread,
+              lastchat: {
+                _id: payload.chat._id,
+                pesan: payload.chat.pesan,
+                namaPengirim: payload.chat.pengirim.nama,
+                totalReadersTarget: payload.chat.totalReadersTarget,
+                seenUsers: payload.chat.seenUsers?.length ?? 0,
+              },
+              updatedAt: payload.chat.createdAt ?? new Date().toISOString(),
+            };
+          }
+
+          if (payload.action === "delete") {
+            return {
+              ...room,
+              chats: (room.chats ?? []).filter((chat) => chat._id !== payload.chatId),
+            };
+          }
+
+          if (payload.action === "seen") {
+            const seenTimestamp = new Date(payload.seenUser.timestamp).toISOString();
+            const isCurrentUserSeen = payload.seenUser.user.nama === currentUserName;
+            return {
+              ...room,
+              chats: (room.chats ?? []).map((chat) => {
+                if (!payload.chatIds.includes(chat._id)) return chat;
+                const alreadySeen = (chat.seenUsers ?? []).some(
+                  (item) => item.namaUser === payload.seenUser.user.nama,
+                );
+                if (alreadySeen) return chat;
+                return {
+                  ...chat,
+                  seenUsers: [
+                    ...(chat.seenUsers ?? []),
+                    { namaUser: payload.seenUser.user.nama, timestamp: seenTimestamp },
+                  ],
+                };
+              }),
+              lastchat:
+                room.lastchat && payload.chatIds.includes(room.lastchat._id)
+                  ? { ...room.lastchat, seenUsers: room.lastchat.seenUsers + 1 }
+                  : room.lastchat,
+              unread: isCurrentUserSeen ? 0 : room.unread,
+            };
+          }
+
+          return room;
+        })
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
     });
   },
 }));

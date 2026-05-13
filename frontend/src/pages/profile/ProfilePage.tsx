@@ -9,7 +9,6 @@ import { useMyProfileQuery, useUpdateMyProfileMutation } from "@/hooks/useUser";
 import { useAuthStore } from "@/store/auth.store";
 import { showToast } from "@/store/toast.store";
 import { formatDateTimeByTimeZone } from "@/utils/dateTime";
-import { useWsStore } from "@/store/ws.store";
 import { useOnlineMembersStore } from "@/store/onlineMembers.store";
 
 export function ProfilePage() {
@@ -17,7 +16,6 @@ export function ProfilePage() {
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
   const logout = useAuthStore((state) => state.logout);
-  const { connect, sendOnline } = useWsStore();
   const isOnlineById = useOnlineMembersStore((state) => state.isOnlineById);
   const getLastSeenById = useOnlineMembersStore((state) => state.getLastSeenById);
   const { data: profileData, isPending: isProfilePending } = useMyProfileQuery();
@@ -38,11 +36,6 @@ export function ProfilePage() {
       timezone: profileData.timezone ?? "UTC",
     });
   }, [profileData]);
-
-  useEffect(() => {
-    connect();
-    if (user?.id) sendOnline(user.id);
-  }, [connect, sendOnline, user?.id]);
 
   const createdAtLabel = useMemo(() => {
     if (!profileData?.createdAt) return "-";

@@ -1,16 +1,9 @@
 import { Navigate, createBrowserRouter } from "react-router-dom";
-import type { ReactElement } from "react";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { SignupPage } from "@/pages/auth/SignupPage";
 import { RoomsPage } from "@/pages/rooms/RoomsPage";
 import { ProfilePage } from "@/pages/profile/ProfilePage";
-import { useAuthStore } from "@/store/auth.store";
-
-function AuthGuard({ children }: { children: ReactElement }) {
-  const user = useAuthStore((state) => state.user);
-  if (!user) return <Navigate to="/login" replace />;
-  return children;
-}
+import { ProtectedAppLayout } from "@/app/layouts/ProtectedAppLayout";
 
 export const router = createBrowserRouter([
   {
@@ -26,19 +19,10 @@ export const router = createBrowserRouter([
     element: <SignupPage />,
   },
   {
-    path: "/rooms",
-    element: (
-      <AuthGuard>
-        <RoomsPage />
-      </AuthGuard>
-    ),
-  },
-  {
-    path: "/profile",
-    element: (
-      <AuthGuard>
-        <ProfilePage />
-      </AuthGuard>
-    ),
+    element: <ProtectedAppLayout />,
+    children: [
+      { path: "/rooms", element: <RoomsPage /> },
+      { path: "/profile", element: <ProfilePage /> },
+    ],
   },
 ]);

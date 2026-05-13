@@ -3,6 +3,32 @@ import { AuthRequest } from "../types/auth";
 import { Chat } from "../models/chat.model";
 import { Room } from "../models/room.model";
 
+function toChatResponse(chat: any) {
+  return {
+    _id: String(chat._id),
+    pesan: String(chat.pesan ?? ""),
+    createdAt: new Date(chat.createdAt).toISOString(),
+    pengirim: {
+      _id: String(chat.idPengirim?._id ?? ""),
+      email: String(chat.idPengirim?.email ?? ""),
+      nama: String(chat.idPengirim?.nama ?? ""),
+    },
+    reply: chat.idChatReply
+      ? {
+          _id: String(chat.idChatReply._id),
+          pesan: String(chat.idChatReply.pesan ?? ""),
+          namaPengirim: String(chat.idChatReply.idPengirim?.nama ?? ""),
+        }
+      : null,
+    totalReadersTarget: Number(chat.totalReadersTarget ?? 0),
+    seenUsers: (chat.seenUsers ?? []).map((item: any) => ({
+      timestamp: new Date(item.timestamp).toISOString(),
+      namaUser: String(item.user?.nama ?? ""),
+    })),
+    isPending: false,
+  };
+}
+
 export async function addChat(req: AuthRequest, res: Response) {
   try {
     const room = await Room.findById(req.params.room_id).populate("anggota", "nama email");
@@ -27,7 +53,7 @@ export async function addChat(req: AuthRequest, res: Response) {
         select: "pesan idPengirim",
         populate: { path: "idPengirim", select: "nama" },
       });
-    return res.status(200).json({ message: "Success add chat", data: populated });
+    return res.status(200).json({ message: "Success add chat", data: toChatResponse(populated) });
   } catch (error: any) {
     return res.status(500).json({ message: error.message, data: null });
   }
@@ -103,29 +129,7 @@ export async function getRoomChats(req: AuthRequest, res: Response) {
         populate: { path: "idPengirim", select: "nama" },
       });
 
-    const chats = chatsDesc.reverse().map((chat: any) => ({
-      totalReadersTarget: chat.totalReadersTarget ?? 0,
-      _id: chat._id,
-      pesan: chat.pesan,
-      pengirim: {
-        _id: chat.idPengirim?._id,
-        email: chat.idPengirim?.email,
-        nama: chat.idPengirim?.nama,
-      },
-      reply: chat.idChatReply
-        ? {
-            _id: chat.idChatReply._id,
-            pesan: chat.idChatReply.pesan,
-            namaPengirim: chat.idChatReply.idPengirim?.nama ?? "",
-          }
-        : null,
-      isPending: false,
-      seenUsers: (chat.seenUsers ?? []).map((item: any) => ({
-        timestamp: item.timestamp,
-        namaUser: item.user?.nama ?? "",
-      })),
-      createdAt: chat.createdAt,
-    }));
+    const chats = chatsDesc.reverse().map((chat: any) => toChatResponse(chat));
 
     return res.status(200).json({
       message: "Success get chats",

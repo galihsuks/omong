@@ -3,7 +3,6 @@ import { BottomNav } from "@/components/common/BottomNav";
 import { RoomDetailPage } from "@/pages/chat/RoomDetailPage";
 import { useAuthStore } from "@/store/auth.store";
 import { useRoomsMainStore } from "@/store/roomsMain.store";
-import { useWsStore } from "@/store/ws.store";
 import { useOnlineMembersStore } from "@/store/onlineMembers.store";
 import { useRoomPageQuery } from "@/hooks/useRooms";
 import { ROOM_LIST_LIMIT } from "@/config/constants";
@@ -20,7 +19,6 @@ export function RoomsPage() {
     setActiveRoomId,
     firstTimestampRenderRooms,
   } = useRoomsMainStore();
-  const { connect, sendOnline } = useWsStore();
   const { isOnlineById, members: membersOnline } = useOnlineMembersStore();
   const listSentinelRef = useRef<HTMLDivElement | null>(null);
 
@@ -35,11 +33,6 @@ export function RoomsPage() {
   useEffect(() => {
     if (roomsData) fetchNextRooms(roomsData);
   }, [roomsData]);
-
-  useEffect(() => {
-    connect();
-    if (user?.id) sendOnline(user.id);
-  }, [connect, sendOnline, user?.id]);
 
   useEffect(() => {
     const node = listSentinelRef.current;
@@ -67,16 +60,6 @@ export function RoomsPage() {
     setIsOnlineById_Trigger((prev) => !prev);
   }, [membersOnline]);
 
-  useEffect(() => {
-    console.log(`active room ID ${activeRoomId}`);
-    console.log(rooms);
-  }, [rooms]);
-
-  useEffect(() => {
-    console.log("ini active room");
-    console.log(activeRoom);
-  }, [activeRoom]);
-
   return (
     <main className="w-full h-screen bg-gradient-to-tr from-indigo-950 via-purple-950 to-fuchsia-900 text-white">
       <section className="mx-auto flex h-full w-full max-w-[1200px]">
@@ -98,6 +81,13 @@ export function RoomsPage() {
                     ? room.anggota.find((anggota) => anggota._id !== user?.id)
                     : null;
                 const isOnline = privateFriend ? isOnlineById(privateFriend._id) : false;
+                const typingNames = (room.typing ?? []).filter((name) => name !== user?.nama);
+                const typingLabel =
+                  typingNames.length > 1
+                    ? `${typingNames.length} people are typing...`
+                    : typingNames[0]
+                      ? `${typingNames[0]} is typing...`
+                      : null;
 
                 return (
                   <button
@@ -118,9 +108,13 @@ export function RoomsPage() {
 
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">{room.nama}</p>
-                      <p className="truncate text-xs text-slate-300">
-                        {room.lastchat?.pesan ?? "No messages yet"}
-                      </p>
+                      {typingLabel ? (
+                        <p className="truncate text-xs text-cyan-300">{typingLabel}</p>
+                      ) : (
+                        <p className="truncate text-xs text-slate-300">
+                          {room.lastchat?.pesan ?? "No messages yet"}
+                        </p>
+                      )}
                     </div>
 
                     {room.unread > 0 && (
