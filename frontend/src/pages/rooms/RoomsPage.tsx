@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Search, X } from "lucide-react";
+import { Check, CheckCheck, Plus, Search, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { BottomNav } from "@/components/common/BottomNav";
 import { ModalTemplate } from "@/components/common/ModalTemplate";
@@ -43,9 +43,9 @@ export function RoomsPage() {
   const [roomName, setRoomName] = useState("");
   const [memberKeyword, setMemberKeyword] = useState("");
   const [selectedMemberValue, setSelectedMemberValue] = useState("");
-  const [selectedMembers, setSelectedMembers] = useState<Array<{ _id: string; nama: string; email: string }>>(
-    [],
-  );
+  const [selectedMembers, setSelectedMembers] = useState<
+    Array<{ _id: string; nama: string; email: string }>
+  >([]);
   const { mutate: createRoom, isPending: isCreateRoomPending } = useCreateRoomMutation();
   const { data: userSearchData, isPending: isUserSearchPending } = useUserSearchQuery(
     "nama",
@@ -224,6 +224,27 @@ export function RoomsPage() {
                     : typingNames[0]
                       ? `${typingNames[0]} is typing...`
                       : null;
+                const senderFirstName =
+                  room.tipe === "group"
+                    ? (room.lastchat?.namaPengirim?.trim().split(/\s+/)[0] ?? "")
+                    : "";
+                const isMineLastChat =
+                  Boolean(user?.nama) && (room.lastchat?.namaPengirim ?? "") === user?.nama;
+                const senderLabel = isMineLastChat ? "You" : senderFirstName;
+                const lastChatPreview =
+                  room.tipe === "group" && senderLabel && room.lastchat?.pesan
+                    ? `${senderLabel}: ${room.lastchat.pesan}`
+                    : (room.lastchat?.pesan ?? "No messages yet");
+                const lastChatTotalReadersTarget = Math.max(
+                  Number(room.lastchat?.totalReadersTarget ?? 0),
+                  0,
+                );
+                const lastChatSeenUsers = Math.max(Number(room.lastchat?.seenUsers ?? 0), 0);
+                const lastChatOtherSeenUsers = Math.max(lastChatSeenUsers - 1, 0);
+                const hasAnyReader = lastChatOtherSeenUsers > 0;
+                const hasAllReaders =
+                  lastChatTotalReadersTarget > 0 &&
+                  lastChatOtherSeenUsers >= lastChatTotalReadersTarget;
                 const lastChatTime = room.updatedAt
                   ? formatTimeByTimeZone(room.updatedAt, profileData?.timezone)
                   : "";
@@ -255,14 +276,21 @@ export function RoomsPage() {
                       {typingLabel ? (
                         <p className="truncate text-xs text-cyan-300">{typingLabel}</p>
                       ) : (
-                        <p className="truncate text-xs text-slate-300">
-                          {room.lastchat?.pesan ?? "No messages yet"}
-                        </p>
+                        <div className="flex items-center gap-1">
+                          {isMineLastChat && room.lastchat && (
+                            <span className={hasAllReaders ? "text-cyan-300" : "text-white"}>
+                              {!hasAnyReader ? <Check size={12} /> : <CheckCheck size={12} />}
+                            </span>
+                          )}
+                          <p className="truncate text-xs text-slate-300">{lastChatPreview}</p>
+                        </div>
                       )}
                     </div>
 
                     <div className="flex min-w-[34px] flex-col items-end gap-1">
-                      {lastChatTime && <span className="text-[10px] text-slate-300">{lastChatTime}</span>}
+                      {lastChatTime && (
+                        <span className="text-[10px] text-slate-300">{lastChatTime}</span>
+                      )}
                       {room.unread > 0 && (
                         <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-pink-400 px-1.5 text-[10px] font-semibold text-slate-900">
                           {room.unread}
