@@ -466,7 +466,7 @@ export function RoomDetailPage({
 
   return (
     <main
-      className={`${embedded ? "h-full" : "h-screen"} bg-gradient-to-tr from-indigo-950 via-purple-950 to-fuchsia-900 text-white`}
+      className={`${embedded ? "h-full" : "h-svh"} bg-gradient-to-tr from-indigo-950 via-purple-950 to-fuchsia-900 text-white`}
     >
       <section
         className={`${embedded ? "h-full w-full" : "mx-auto h-full w-ful max-w-3xl"} flex flex-col`}

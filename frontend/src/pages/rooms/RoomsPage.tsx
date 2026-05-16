@@ -157,7 +157,7 @@ export function RoomsPage() {
   };
 
   return (
-    <main className="w-full h-screen bg-gradient-to-tr from-indigo-950 via-purple-950 to-fuchsia-900 text-white">
+    <main className="w-full h-svh bg-gradient-to-tr from-indigo-950 via-purple-950 to-fuchsia-900 text-white">
       <section className="mx-auto flex h-full w-full max-w-[1200px]">
         <aside
           className={`${activeRoom ? "hidden" : "flex"} w-full flex-col border-r border-white/10 md:flex md:w-[380px]`}

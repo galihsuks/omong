@@ -93,7 +93,7 @@ export function ProfilePage() {
   };
 
   return (
-    <main className="h-screen bg-gradient-to-tr from-indigo-950 via-purple-950 to-fuchsia-900 text-white">
+    <main className="h-svh bg-gradient-to-tr from-indigo-950 via-purple-950 to-fuchsia-900 text-white">
       <section className="mx-auto flex h-full w-full max-w-3xl flex-col">
         <TopBar title="Profile" subtitle={user?.nama} />
 

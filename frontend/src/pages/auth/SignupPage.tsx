@@ -27,8 +27,8 @@ export function SignupPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-tr from-indigo-900 to-fuchsia-800 text-slate-100">
-      <section className="mx-auto flex min-h-screen w-full max-w-md items-center px-6">
+    <main className="min-h-svh bg-gradient-to-tr from-indigo-900 to-fuchsia-800 text-slate-100">
+      <section className="mx-auto flex min-h-svh w-full max-w-md items-center px-6">
         <div className="w-full p-6">
           <div className="mx-auto mb-4" style={{ maxWidth: "200px" }}>
             <p className="mb-2 font-bold">Registration</p>
