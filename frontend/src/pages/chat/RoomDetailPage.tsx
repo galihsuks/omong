@@ -93,9 +93,9 @@ export function RoomDetailPage({
   const [showAddMembers, setShowAddMembers] = useState(false);
   const [memberKeyword, setMemberKeyword] = useState("");
   const debouncedMemberKeyword = useDebouncedValue(memberKeyword, 400);
-  const [selectedMembers, setSelectedMembers] = useState<Array<{ nama: string; email: string }>>(
-    [],
-  );
+  const [selectedMembers, setSelectedMembers] = useState<
+    Array<{ _id: string; nama: string; email: string }>
+  >([]);
   const [selectedMemberValue, setSelectedMemberValue] = useState("");
   const [showExitConfirm, setShowExitConfirm] = useState(false);
 
@@ -105,6 +105,8 @@ export function RoomDetailPage({
   const listSentinelRef = useRef<HTMLDivElement | null>(null);
   const shouldAutoScrollRef = useRef(true);
   const mySelfTyping = useRef(false);
+  const lastSeenRequestKeyRef = useRef("");
+  const typingIdleTimeoutRef = useRef<number | null>(null);
 
   const { data: chatsData, isPending: isChatsPending } = useChatPageQuery(
     roomId,
@@ -130,7 +132,50 @@ export function RoomDetailPage({
   }, [chatsData]);
 
   useEffect(() => {
-    if (!roomId) return;
+    if (!roomId || !user?.nama) return;
+    if (message.trim()) {
+      if (!mySelfTyping.current) {
+        mySelfTyping.current = true;
+        send(roomId, { event: "typing", roomId, userName: user.nama, status: true });
+      }
+      if (typingIdleTimeoutRef.current) {
+        window.clearTimeout(typingIdleTimeoutRef.current);
+      }
+      typingIdleTimeoutRef.current = window.setTimeout(() => {
+        mySelfTyping.current = false;
+        send(roomId, { event: "typing", roomId, userName: user.nama, status: false });
+      }, 2500);
+    } else {
+      if (typingIdleTimeoutRef.current) {
+        window.clearTimeout(typingIdleTimeoutRef.current);
+        typingIdleTimeoutRef.current = null;
+      }
+      mySelfTyping.current = false;
+      send(roomId, { event: "typing", roomId, userName: user.nama, status: false });
+    }
+  }, [message, roomId, send, user?.nama]);
+
+  const chats = useMemo(() => roomDetailData?.chats ?? [], [roomDetailData?.chats]);
+  const totalChats = useMemo(() => roomDetailData?.totalChats ?? 0, [roomDetailData?.totalChats]);
+  const latestChat = chats.length ? chats[chats.length - 1] : null;
+
+  useEffect(() => {
+    return () => {
+      if (typingIdleTimeoutRef.current) {
+        window.clearTimeout(typingIdleTimeoutRef.current);
+        typingIdleTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!roomId || !user?.id || !latestChat) return;
+    if (latestChat.pengirim._id === user.id) return;
+
+    const seenKey = `${roomId}:${latestChat._id}`;
+    if (lastSeenRequestKeyRef.current === seenKey) return;
+    lastSeenRequestKeyRef.current = seenKey;
+
     markRoomSeen(undefined, {
       onSuccess: (result) => {
         handleRealtimePayload(
@@ -152,23 +197,11 @@ export function RoomDetailPage({
           seenUser: result.addToSeenUsers,
         });
       },
+      onError: () => {
+        lastSeenRequestKeyRef.current = "";
+      },
     });
-  }, [handleRealtimePayload, markRoomSeen, roomId, send, user?.nama]);
-
-  useEffect(() => {
-    if (!roomId || !user?.nama) return;
-    if (message) {
-      if (mySelfTyping.current) return;
-      mySelfTyping.current = true;
-      send(roomId, { event: "typing", roomId, userName: user.nama, status: true });
-    } else {
-      mySelfTyping.current = false;
-      send(roomId, { event: "typing", roomId, userName: user.nama, status: false });
-    }
-  }, [message, roomId, send, user?.nama]);
-
-  const chats = useMemo(() => roomDetailData?.chats ?? [], [roomDetailData?.chats]);
-  const totalChats = useMemo(() => roomDetailData?.totalChats ?? 0, [roomDetailData?.totalChats]);
+  }, [handleRealtimePayload, latestChat, markRoomSeen, roomId, send, user?.id, user?.nama]);
 
   const roomDisplayName = useMemo(() => {
     if (!roomDetailData) return "Room";
@@ -270,10 +303,13 @@ export function RoomDetailPage({
       { pesan: text, idChatReply: replyTarget?._id ?? null },
       {
         onSuccess: (chat) => {
-          console.log(chat);
-          console.log(user);
           handleRealtimePayload(roomId, { event: "chat", action: "add", roomId, chat }, user?.nama);
 
+          if (typingIdleTimeoutRef.current) {
+            window.clearTimeout(typingIdleTimeoutRef.current);
+            typingIdleTimeoutRef.current = null;
+          }
+          mySelfTyping.current = false;
           send(roomId, { event: "typing", roomId, userName: user?.nama, status: false });
           send(roomId, { event: "chat", action: "add", roomId, chat });
 
@@ -315,6 +351,25 @@ export function RoomDetailPage({
   const handleExitRoom = () => {
     exitRoom(roomId, {
       onSuccess: () => {
+        const otherMemberIds = (roomDetailData?.anggota ?? [])
+          .map((member) => member._id)
+          .filter((memberId) => memberId && memberId !== user?.id);
+
+        if (user?.id) {
+          send(`__user__:${user.id}`, {
+            event: "room",
+            action: "delete",
+            roomId,
+          });
+        }
+        otherMemberIds.forEach((memberId) => {
+          send(`__user__:${memberId}`, {
+            event: "room",
+            action: "update",
+            roomId,
+          });
+        });
+
         queryClient.invalidateQueries({ queryKey: ["rooms"] });
         showToast("warning", "You left the room.");
         if (onExitRoom) {
@@ -366,7 +421,7 @@ export function RoomDetailPage({
     setSelectedMembers((prev) =>
       prev.some((member) => member.email === selectedEmail)
         ? prev
-        : [...prev, { nama: selectedUser.nama, email: selectedUser.email }],
+        : [...prev, { _id: selectedUser._id, nama: selectedUser.nama, email: selectedUser.email }],
     );
   };
 
@@ -379,6 +434,13 @@ export function RoomDetailPage({
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: ["rooms"] });
           queryClient.invalidateQueries({ queryKey: ["room", roomId] });
+          selectedMembers.forEach((member) => {
+            send(`__user__:${member._id}`, {
+              event: "room",
+              action: "add",
+              roomId,
+            });
+          });
           handleCloseAddMembers();
           showToast("success", "Members added successfully.");
         },

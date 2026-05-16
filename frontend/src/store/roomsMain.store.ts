@@ -64,6 +64,9 @@ type RoomsMainState = {
   setActiveRoomId: (roomId: string | null) => void;
   fetchRoomChatsPage: (roomId: string, result: RoomChatsPageResponse) => Promise<void>;
   handleRealtimePayload: (roomId: string, payload: WsPayload, currentUserName?: string) => void;
+  recentEventKeys: string[];
+  upsertRoomFromApi: (room: any) => void;
+  hydrateRoomsPage: (result: RoomsPageResponse) => void;
 };
 
 function mergeRooms(prev: RoomMainItem[], next: RoomMainItem[]) {
@@ -79,6 +82,23 @@ function normalizeChats(chats: RoomChatItem[]) {
   return [...chats].sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
   );
+}
+
+function buildEventKey(roomId: string, payload: WsPayload) {
+  if (payload.eventId) return payload.eventId;
+  if (payload.event === "typing") {
+    return null;
+  }
+  if (payload.event === "chat" && payload.action === "add") {
+    return `chat:add:${roomId}:${payload.chat._id}`;
+  }
+  if (payload.event === "chat" && payload.action === "delete") {
+    return `chat:delete:${roomId}:${payload.chatId}`;
+  }
+  if (payload.event === "chat" && payload.action === "seen") {
+    return `chat:seen:${roomId}:${payload.seenUser.user._id}:${payload.chatIds.join(",")}`;
+  }
+  return `${payload.event}:${roomId}:${Date.now()}`;
 }
 
 export const useRoomsMainStore = create<RoomsMainState>((set, get) => ({
@@ -102,6 +122,7 @@ export const useRoomsMainStore = create<RoomsMainState>((set, get) => ({
   firstTimestampRenderRooms: new Date().toISOString(),
   rooms: [],
   activeRoomId: null,
+  recentEventKeys: [],
   fetchNextRooms: async (result) => {
     const { page, totalRooms, rooms } = get();
     if (page === 1) {
@@ -138,7 +159,13 @@ export const useRoomsMainStore = create<RoomsMainState>((set, get) => ({
     });
   },
   handleRealtimePayload: (roomId, payload, currentUserName) => {
+    const eventKey = buildEventKey(roomId, payload);
+    const previousKeys = get().recentEventKeys;
+    if (eventKey && previousKeys.includes(eventKey)) return;
+    const nextKeys = eventKey ? [...previousKeys, eventKey].slice(-300) : previousKeys;
+
     set({
+      recentEventKeys: nextKeys,
       rooms: get().rooms
         .map((room) => {
           if (room._id !== roomId) return room;
@@ -220,6 +247,23 @@ export const useRoomsMainStore = create<RoomsMainState>((set, get) => ({
           return room;
         })
         .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
+    });
+  },
+  upsertRoomFromApi: (roomData) => {
+    const mapped = mapApiRoom(roomData);
+    set({
+      rooms: mergeRooms([mapped], get().rooms).sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      ),
+    });
+  },
+  hydrateRoomsPage: (result) => {
+    set({
+      totalRooms: result.totalRooms,
+      page: 1,
+      rooms: mergeRooms(get().rooms, result.rooms.map(mapApiRoom)).sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      ),
     });
   },
 }));

@@ -59,14 +59,16 @@ export type Room = {
 };
 
 export type WsPayload =
-  | { event: "chat"; action: "add"; roomId: string; chat: Chat }
-  | { event: "chat"; action: "delete"; roomId: string; chatId: string }
+  | { eventId?: string; event: "chat"; action: "add"; roomId: string; chat: Chat }
+  | { eventId?: string; event: "chat"; action: "delete"; roomId: string; chatId: string }
   | {
+      eventId?: string;
       event: "chat";
       action: "seen";
       roomId: string;
       chatIds: string[];
       seenUser: { user: UserLite; timestamp: number };
     }
-  | { event: "typing"; roomId: string; userName: string; status: boolean }
-  | { event: "room"; action: "add" | "update" | "delete"; room: Room };
+  | { eventId?: string; event: "typing"; roomId: string; userName: string; status: boolean }
+  | { eventId?: string; event: "room"; action: "add" | "update" | "delete"; room: Room }
+  | { eventId?: string; event: "room"; action: "add" | "update" | "delete"; roomId: string };

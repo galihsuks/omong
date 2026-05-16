@@ -4,6 +4,48 @@ import { Room } from "../models/room.model";
 import { Chat } from "../models/chat.model";
 import { User } from "../models/user.model";
 
+async function mapRoomDto(room: any, currentUserId?: string) {
+  const lastchat = await Chat.findOne({ idRoom: room._id })
+    .sort({ createdAt: -1 })
+    .populate("idPengirim", "nama email")
+    .populate({
+      path: "idChatReply",
+      select: "pesan idPengirim",
+      populate: { path: "idPengirim", select: "nama" },
+    })
+    .populate("seenUsers.user", "nama email");
+
+  const chatsUnread = await Chat.countDocuments({
+    idRoom: room._id,
+    "seenUsers.user": { $ne: currentUserId },
+  });
+
+  const teman =
+    room.tipe === "private"
+      ? (room.anggota as any[]).find((a) => String(a._id) !== currentUserId)
+      : null;
+
+  const nama = room.tipe === "private" ? (teman as any)?.nama : room.nama;
+  return {
+    _id: room._id,
+    nama,
+    tipe: room.tipe,
+    anggota: room.anggota,
+    lastChat: lastchat
+      ? {
+          totalReadersTarget: lastchat.totalReadersTarget ?? 0,
+          _id: lastchat._id,
+          pesan: lastchat.pesan,
+          namaPengirim: (lastchat.idPengirim as any)?.nama ?? "",
+          seenUsers: Array.isArray(lastchat.seenUsers) ? lastchat.seenUsers.length : 0,
+        }
+      : null,
+    updatedAt: room.updatedAt,
+    unread: chatsUnread,
+    typing: [],
+  };
+}
+
 export async function getRoom(req: AuthRequest, res: Response) {
   try {
     if (!req.user) return res.status(401).json({ message: "Unauthorized", data: null });
@@ -21,51 +63,7 @@ export async function getRoom(req: AuthRequest, res: Response) {
     const totalRooms = allRooms.length;
     const rooms = allRooms.slice(skip, skip + limit);
 
-    const roomDtos = await Promise.all(
-      rooms.map(async (r: any) => {
-        const lastchat = await Chat.findOne({ idRoom: r._id })
-          .sort({ createdAt: -1 })
-          .populate("idPengirim", "nama email")
-          .populate({
-            path: "idChatReply",
-            select: "pesan idPengirim",
-            populate: { path: "idPengirim", select: "nama" },
-          })
-          .populate("seenUsers.user", "nama email");
-
-        const chatsUnread = await Chat.countDocuments({
-          idRoom: r._id,
-          "seenUsers.user": { $ne: req.user?.id },
-        });
-
-        const teman =
-          r.tipe === "private"
-            ? (r.anggota as any[]).find((a) => String(a._id) !== req.user?.id)
-            : null;
-
-        const nama = r.tipe === "private" ? (teman as any)?.nama : r.nama;
-        const roomDto = {
-          _id: r._id,
-          nama,
-          tipe: r.tipe,
-          anggota: r.anggota,
-          lastChat: lastchat
-            ? {
-                totalReadersTarget: lastchat.totalReadersTarget ?? 0,
-                _id: lastchat._id,
-                pesan: lastchat.pesan,
-                namaPengirim: (lastchat.idPengirim as any)?.nama ?? "",
-                seenUsers: Array.isArray(lastchat.seenUsers) ? lastchat.seenUsers.length : 0,
-              }
-            : null,
-          updatedAt: r.updatedAt,
-          unread: chatsUnread,
-          typing: [],
-        };
-
-        return roomDto;
-      }),
-    );
+    const roomDtos = await Promise.all(rooms.map((r: any) => mapRoomDto(r, req.user?.id)));
 
     return res.status(200).json({
       message: "Success get rooms",
@@ -100,13 +98,17 @@ export async function addRoom(req: AuthRequest, res: Response) {
         .json({ message: "Private rooms can only invite one member.", data: null });
     }
 
-    const room = await Room.create({
+    const roomCreated = await Room.create({
       nama: tipe === "private" ? null : nama,
       anggota: [req.user.id, ...users.map((u) => u._id)],
       tipe,
     });
 
-    return res.status(200).json({ message: "Success create room", data: room });
+    const room = await Room.findById(roomCreated._id).populate("anggota", "nama email");
+    if (!room) return res.status(404).json({ message: "Room ID not found.", data: null });
+
+    const roomDto = await mapRoomDto(room, req.user.id);
+    return res.status(200).json({ message: "Success create room", data: roomDto });
   } catch (error: any) {
     return res.status(500).json({ message: error.message, data: null });
   }
