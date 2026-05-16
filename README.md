@@ -49,6 +49,7 @@ Required:
 
 - `VITE_API_URL` (example: `http://localhost:8083/backend`)
 - `VITE_WS_URL` (your public WebSocket endpoint)
+- `VITE_WS_APP_ID` (optional, defaults to `omong`)
 
 ## Installation
 
@@ -120,6 +121,11 @@ npm run format:check
 - API calls are centralized in `frontend/src/api`.
 - TanStack Query hooks are organized in `frontend/src/hooks`.
 - Zustand stores are in `frontend/src/store`.
+- Main rooms state is managed in `frontend/src/store/roomsMain.store.ts`.
+- WebSocket lifecycle is handled in `frontend/src/app/layouts/ProtectedAppLayout.tsx`.
+- WebSocket connections only start after authenticated user session is available.
+- Room search on `/rooms` is client-side UI filtering (CSS `hidden`) and does not refetch room API.
+- Realtime room updates (create/add member/exit) use user channels (`__user__:{userId}`).
 
 ## License
 

@@ -1,73 +1,57 @@
-# React + TypeScript + Vite
+# Omong Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend client for Omong, a real-time chat application.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- React + Vite + TypeScript
+- Tailwind CSS
+- TanStack React Query
+- Zustand
+- React Router (`createBrowserRouter`)
 
-## React Compiler
+## Environment Variables (`frontend/.env`)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Required:
 
-## Expanding the ESLint configuration
+- `VITE_API_URL` (example: `http://localhost:8083/backend`)
+- `VITE_WS_URL` (public websocket endpoint)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Optional:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- `VITE_WS_APP_ID` (default: `omong`)
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Run
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Build
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run build
 ```
+
+## Formatting
+
+```bash
+npm run format
+npm run format:check
+```
+
+## Architecture Notes
+
+- API modules: `src/api`
+- React Query hooks: `src/hooks`
+- Global stores: `src/store`
+- Main rooms container state: `src/store/roomsMain.store.ts`
+- WebSocket app-level lifecycle: `src/app/layouts/ProtectedAppLayout.tsx`
+
+## Realtime Notes
+
+- All rooms are subscribed while user is logged in.
+- Room realtime events are merged into the main rooms store.
+- Room list updates for create/add member/exit are announced through user channels: `__user__:{userId}`.
+- WebSocket does not connect when user is not authenticated.
