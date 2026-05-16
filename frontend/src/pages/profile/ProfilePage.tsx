@@ -5,6 +5,7 @@ import { BottomNav } from "@/components/common/BottomNav";
 import { TopBar } from "@/components/common/TopBar";
 import { Button } from "@/components/forms/Button";
 import { InputField } from "@/components/forms/InputField";
+import { logoutApi } from "@/api/auth.api";
 import { useMyProfileQuery, useUpdateMyProfileMutation } from "@/hooks/useUser";
 import { useAuthStore } from "@/store/auth.store";
 import { showToast } from "@/store/toast.store";
@@ -20,6 +21,7 @@ export function ProfilePage() {
   const getLastSeenById = useOnlineMembersStore((state) => state.getLastSeenById);
   const { data: profileData, isPending: isProfilePending } = useMyProfileQuery();
   const { mutate: updateProfile, isPending: isUpdatePending } = useUpdateMyProfileMutation();
+  const [isLogoutPending, setIsLogoutPending] = useState(false);
   const [form, setForm] = useState({
     nama: "",
     email: "",
@@ -163,12 +165,21 @@ export function ProfilePage() {
             <Button
               variant="model1"
               icon={<LogOut size={16} />}
-              onClick={() => {
-                logout();
-                showToast("success", "Logged out.");
+              disabled={isLogoutPending}
+              onClick={async () => {
+                if (isLogoutPending) return;
+                setIsLogoutPending(true);
+                try {
+                  await logoutApi();
+                } catch {
+                  // Continue local logout and redirect even if request fails.
+                } finally {
+                  logout();
+                  window.location.assign("/login");
+                }
               }}
             >
-              Logout
+              {isLogoutPending ? "Logging out..." : "Logout"}
             </Button>
           </div>
         </div>

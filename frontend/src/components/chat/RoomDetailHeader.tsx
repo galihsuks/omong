@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { LogOut, Menu, Pencil, UserPlus, Users, X, ArrowLeft } from "lucide-react";
 import type { RefObject } from "react";
 import { TopBar } from "@/components/common/TopBar";
@@ -15,6 +14,7 @@ type Props = {
   onOpenEdit: () => void;
   onOpenAddMembers: () => void;
   onOpenExitConfirm: () => void;
+  onBack?: () => void;
 };
 
 export function RoomDetailHeader({
@@ -29,6 +29,7 @@ export function RoomDetailHeader({
   onOpenEdit,
   onOpenAddMembers,
   onOpenExitConfirm,
+  onBack,
 }: Props) {
   return (
     <TopBar
@@ -36,9 +37,15 @@ export function RoomDetailHeader({
       subtitle={subtitle}
       right={
         <div className="flex gap-2">
-          <Link to="/rooms" className="rounded-lg bg-white/10 p-2 hover:bg-white/20">
-            <ArrowLeft size={16} />
-          </Link>
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="rounded-lg bg-white/10 p-2 hover:bg-white/20 md:hidden"
+            >
+              <ArrowLeft size={16} />
+            </button>
+          )}
           <div className="relative" ref={menuRef}>
             <button className="rounded-lg bg-white/10 p-2 hover:bg-white/20" onClick={onToggleMenu}>
               {showMenu ? <X size={16} /> : <Menu size={16} />}

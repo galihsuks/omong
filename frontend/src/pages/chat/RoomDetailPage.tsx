@@ -461,7 +461,7 @@ export function RoomDetailPage({
     typingNames.length > 1
       ? `${typingNames.length} people typing`
       : typingNames[0]
-        ? `${typingNames[0]} typing`
+        ? `${typingNames[0].trim().split(/\s+/)[0]} typing`
         : "";
 
   return (
@@ -488,6 +488,13 @@ export function RoomDetailPage({
           onOpenExitConfirm={() => {
             setShowExitConfirm(true);
             setShowMenu(false);
+          }}
+          onBack={() => {
+            if (onExitRoom) {
+              onExitRoom();
+              return;
+            }
+            navigate("/rooms", { replace: true });
           }}
         />
 

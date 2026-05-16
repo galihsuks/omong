@@ -14,3 +14,9 @@ export function signupApi(payload: { nama: string; email: string; sandi: string 
     body: JSON.stringify(payload),
   });
 }
+
+export function logoutApi() {
+  return apiClient<{ message: string; data: null }>("/auth/logout", {
+    method: "POST",
+  }).then((res) => res.data);
+}

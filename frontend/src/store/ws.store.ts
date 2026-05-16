@@ -9,6 +9,7 @@ type WsStore = {
   handlers: Record<string, MessageHandler[]>;
   subscribedRooms: Record<string, number>;
   connect: () => void;
+  disconnect: () => void;
   subscribe: (roomId: string, handler: MessageHandler) => void;
   unsubscribe: (roomId: string, handler: MessageHandler) => void;
   send: (roomId: string, payload: unknown) => void;
@@ -44,6 +45,13 @@ export const useWsStore = create<WsStore>((set, get) => ({
     ws.onclose = () => set({ ws: null, handlers: {}, subscribedRooms: {} });
 
     set({ ws });
+  },
+  disconnect: () => {
+    const ws = get().ws;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.close();
+    }
+    set({ ws: null, handlers: {}, subscribedRooms: {} });
   },
   subscribe: (roomId, handler) => {
     const ws = get().ws;

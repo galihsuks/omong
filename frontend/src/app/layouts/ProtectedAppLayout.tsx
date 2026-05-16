@@ -10,17 +10,22 @@ import type { WsPayload } from "@/types/domain";
 export function ProtectedAppLayout() {
   const user = useAuthStore((state) => state.user);
   const { handleRealtimePayload, rooms, hydrateRoomsPage } = useRoomsMainStore();
-  const { connect, sendOnline, subscribe, unsubscribe } = useWsStore();
+  const { connect, disconnect, sendOnline, subscribe, unsubscribe } = useWsStore();
 
   const roomIdsKey = rooms.map((room) => room._id).join("|");
   const roomIds = useMemo(() => rooms.map((room) => room._id), [roomIdsKey]);
 
   useEffect(() => {
+    if (!user?.id) {
+      disconnect();
+      return;
+    }
     connect();
-    if (user?.id) sendOnline(user.id);
-  }, [connect, sendOnline, user?.id]);
+    sendOnline(user.id);
+  }, [connect, disconnect, sendOnline, user?.id]);
 
   useEffect(() => {
+    if (!user?.id) return;
     if (!roomIds.length) return;
 
     const unsubs: Array<() => void> = [];
@@ -36,7 +41,7 @@ export function ProtectedAppLayout() {
     return () => {
       unsubs.forEach((fn) => fn());
     };
-  }, [handleRealtimePayload, roomIdsKey, roomIds, subscribe, unsubscribe, user?.nama]);
+  }, [handleRealtimePayload, roomIdsKey, roomIds, subscribe, unsubscribe, user?.id, user?.nama]);
 
   useEffect(() => {
     if (!user?.id) return;

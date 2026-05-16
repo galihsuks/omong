@@ -159,7 +159,9 @@ export function RoomsPage() {
   return (
     <main className="w-full h-screen bg-gradient-to-tr from-indigo-950 via-purple-950 to-fuchsia-900 text-white">
       <section className="mx-auto flex h-full w-full max-w-[1200px]">
-        <aside className="w-full border-r border-white/10 md:w-[380px] flex flex-col">
+        <aside
+          className={`${activeRoom ? "hidden" : "flex"} w-full flex-col border-r border-white/10 md:flex md:w-[380px]`}
+        >
           <header className="border-b border-white/10 px-6 py-4">
             <div className="flex items-start justify-between gap-3">
               {!showSearch ? (
@@ -222,7 +224,7 @@ export function RoomsPage() {
                   typingNames.length > 1
                     ? `${typingNames.length} people are typing...`
                     : typingNames[0]
-                      ? `${typingNames[0]} is typing...`
+                      ? `${typingNames[0].trim().split(/\s+/)[0]} is typing...`
                       : null;
                 const senderFirstName =
                   room.tipe === "group"
@@ -314,7 +316,7 @@ export function RoomsPage() {
           <BottomNav />
         </aside>
 
-        <section className="hidden flex-1 flex-col md:flex">
+        <section className={`${activeRoom ? "flex" : "hidden"} flex-1 flex-col md:flex`}>
           {activeRoom ? (
             <RoomDetailPage
               embedded
