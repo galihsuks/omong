@@ -56,7 +56,7 @@ export async function getRoom(req: AuthRequest, res: Response) {
 
     const allRooms = await Room.find({
       anggota: { $all: [req.user.id] },
-      createdAt: { $lt: newestTime },
+      updatedAt: { $lt: newestTime },
     })
       .sort({ updatedAt: -1 })
       .populate("anggota", "nama email");
@@ -71,6 +71,76 @@ export async function getRoom(req: AuthRequest, res: Response) {
         totalRooms,
         page,
         rooms: roomDtos,
+      },
+    });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message, data: null });
+  }
+}
+
+export async function getRoomById(req: AuthRequest, res: Response) {
+  try {
+    if (!req.user) return res.status(401).json({ message: "Unauthorized", data: null });
+    const room = await Room.findById(req.params.room_id).populate("anggota", "nama email online");
+    if (!room) return res.status(404).json({ message: "Room ID not found.", data: null });
+
+    const hasAccess = (room.anggota as any[]).some((a) => String(a._id) === req.user?.id);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "You do not have access to this room.", data: null });
+    }
+
+    const chats = await Chat.find({ idRoom: room._id })
+      .sort({ createdAt: 1 })
+      .populate("idPengirim", "nama email")
+      .populate("seenUsers.user", "nama email")
+      .populate({
+        path: "idChatReply",
+        select: "pesan idPengirim",
+        populate: { path: "idPengirim", select: "nama" },
+      });
+
+    const mappedChats = chats.map((chat: any) => ({
+      _id: chat._id,
+      pesan: chat.pesan,
+      idPengirim: {
+        _id: chat.idPengirim?._id,
+        email: chat.idPengirim?.email,
+        nama: chat.idPengirim?.nama,
+      },
+      idChatReply: chat.idChatReply
+        ? {
+            pesan: chat.idChatReply.pesan,
+            idPengirim: { nama: chat.idChatReply.idPengirim?.nama ?? "" },
+          }
+        : null,
+      seenUsers: (chat.seenUsers ?? []).map((seen: any) => ({
+        _id: seen._id,
+        timestamp: seen.timestamp,
+        user: {
+          _id: seen.user?._id,
+          email: seen.user?.email,
+          nama: seen.user?.nama,
+        },
+      })),
+      createdAt: chat.createdAt,
+      updatedAt: chat.updatedAt,
+    }));
+
+    const roomDto = await mapRoomDto(room, req.user.id);
+    return res.status(200).json({
+      message: "Success get room",
+      data: {
+        _id: room._id,
+        nama: roomDto.nama,
+        tipe: room.tipe,
+        anggota: room.anggota,
+        chats: mappedChats,
+        lastchat: mappedChats.length ? mappedChats[mappedChats.length - 1] : null,
+        chatsUnread: roomDto.unread ?? 0,
+        online: false,
+        pesan: "",
+        createdAt: (room as any).createdAt,
+        updatedAt: (room as any).updatedAt,
       },
     });
   } catch (error: any) {

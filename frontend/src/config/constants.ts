@@ -1,2 +1,2 @@
-export const ROOM_LIST_LIMIT = 3;
-export const ROOM_CHAT_LIMIT = 5;
+export const ROOM_LIST_LIMIT = 4;
+export const ROOM_CHAT_LIMIT = 20;

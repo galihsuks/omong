@@ -56,6 +56,39 @@ export async function searchUsers(req: AuthRequest, res: Response) {
   }
 }
 
+export async function getUserOne(req: AuthRequest, res: Response) {
+  try {
+    const nama = String(req.body?.nama ?? "").trim();
+    const email = String(req.body?.email ?? "").trim();
+    if (!nama && !email) {
+      return res.status(400).json({ message: "nama or email is required.", data: null });
+    }
+
+    const query: Record<string, unknown>[] = [];
+    if (nama) query.push({ nama: { $regex: `^${nama}$`, $options: "i" } });
+    if (email) query.push({ email: { $regex: `^${email}$`, $options: "i" } });
+
+    const user = await User.findOne({ $or: query }).select(
+      "_id nama email online createdAt updatedAt",
+    );
+    if (!user) return res.status(404).json({ message: "User not found.", data: null });
+
+    return res.status(200).json({
+      message: "Success get user",
+      data: {
+        _id: String(user._id),
+        nama: user.nama,
+        email: user.email,
+        online: user.online ?? { status: false, last: null },
+        createdAt: (user as any).createdAt,
+        updatedAt: (user as any).updatedAt,
+      },
+    });
+  } catch (error: any) {
+    return res.status(500).json({ message: error.message, data: null });
+  }
+}
+
 export async function updateUser(req: AuthRequest, res: Response) {
   try {
     if (!req.user) return res.status(401).json({ message: "Unauthorized", data: null });
